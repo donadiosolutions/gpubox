@@ -1,0 +1,111 @@
+ARG UBUNTU_VERSION=24.04
+FROM ubuntu:${UBUNTU_VERSION}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG VSCODE_CLI_VERSION=1.108.2
+
+# OCI image metadata labels.
+#
+# These values are typically injected by CI at build-time, for example:
+#   docker buildx build \
+#     --build-arg OCI_SOURCE="$GIT_URL" \
+#     --build-arg OCI_REVISION="$GIT_SHA" \
+#     --build-arg OCI_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+#     --attest type=provenance,mode=max \
+#     --attest type=sbom \
+#     -t ghcr.io/your-org/gpubox:... .
+#
+# If you're using Podman, you can generate an SBOM at build time using the built-in SBOM flags:
+#   podman build \
+#     --build-arg OCI_SOURCE="$GIT_URL" \
+#     --build-arg OCI_REVISION="$GIT_SHA" \
+#     --build-arg OCI_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+#     --sbom <preset> \
+#     --sbom-output sbom.spdx.json \
+#     -t ghcr.io/your-org/gpubox:... .
+# (See `podman build --help` for SBOM flags/presets, or provide a custom scanner via
+#  `--sbom-scanner-image` + `--sbom-scanner-command`.)
+#
+# Podman/Buildah currently does not emit SLSA provenance attestations directly from `podman build`.
+# For provenance attestations, attach them after the build with a signing tool (for example cosign).
+# Example (keyless, requires pushing to a registry that supports OCI referrers):
+#   cosign attest --keyless --type slsaprovenance --predicate provenance.json ghcr.io/your-org/gpubox:...
+ARG OCI_TITLE="gpubox"
+ARG OCI_DESCRIPTION="Privileged Ubuntu devbox with VS Code CLI tunnel"
+ARG OCI_AUTHORS=""
+ARG OCI_VENDOR=""
+ARG OCI_SOURCE=""
+ARG OCI_URL=""
+ARG OCI_DOCUMENTATION=""
+ARG OCI_LICENSES="NOASSERTION"
+ARG OCI_REVISION=""
+ARG OCI_CREATED=""
+
+LABEL org.opencontainers.image.title="${OCI_TITLE}" \
+      org.opencontainers.image.description="${OCI_DESCRIPTION}" \
+      org.opencontainers.image.authors="${OCI_AUTHORS}" \
+      org.opencontainers.image.vendor="${OCI_VENDOR}" \
+      org.opencontainers.image.source="${OCI_SOURCE}" \
+      org.opencontainers.image.url="${OCI_URL}" \
+      org.opencontainers.image.documentation="${OCI_DOCUMENTATION}" \
+      org.opencontainers.image.licenses="${OCI_LICENSES}" \
+      org.opencontainers.image.revision="${OCI_REVISION}" \
+      org.opencontainers.image.created="${OCI_CREATED}" \
+      org.opencontainers.image.version="${UBUNTU_VERSION}-vscodecli-${VSCODE_CLI_VERSION}" \
+      org.opencontainers.image.ref.name="${UBUNTU_VERSION}-vscodecli-${VSCODE_CLI_VERSION}" \
+      org.opencontainers.image.base.name="ubuntu:${UBUNTU_VERSION}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bash-completion \
+      build-essential \
+      ca-certificates \
+      cmake \
+      curl \
+      dnsutils \
+      gdb \
+      git \
+      gosu \
+      htop \
+      iperf3 \
+      iproute2 \
+      iputils-ping \
+      less \
+      lsof \
+      mtr \
+      openssh-client \
+      openssh-server \
+      pkg-config \
+      python3 \
+      python3-pip \
+      python3-venv \
+      rsync \
+      strace \
+      sudo \
+      tree \
+      tini \
+      tmux \
+      vim-complete \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 -s /bin/bash coder \
+  && echo "coder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/coder \
+  && chmod 0440 /etc/sudoers.d/coder
+
+RUN mkdir -p /home/coder/workspace \
+  && mkdir -p /home/coder/.ssh \
+  && chown -R coder:coder /home/coder \
+  && chmod 700 /home/coder/.ssh
+
+RUN curl -fsSL \
+      "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
+      -o /tmp/vscode-cli.tgz \
+  && tar -xzf /tmp/vscode-cli.tgz -C /usr/local/bin \
+  && rm -f /tmp/vscode-cli.tgz \
+  && chmod +x /usr/local/bin/code
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENV HOME=/home/coder USER=coder
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

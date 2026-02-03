@@ -1,0 +1,33 @@
+{{- if .Values.service.enabled -}}
+{{- if and .Values.service.headless (ne .Values.service.type "ClusterIP") -}}
+{{- fail "service.headless=true requires service.type=ClusterIP" -}}
+{{- end -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "coder.serviceName" . }}
+  labels:
+    {{- include "coder.labels" . | nindent 4 }}
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if .Values.service.headless }}
+  clusterIP: None
+  {{- else if .Values.service.clusterIP }}
+  clusterIP: {{ .Values.service.clusterIP | quote }}
+  {{- end }}
+  {{- if .Values.service.publishNotReadyAddresses }}
+  publishNotReadyAddresses: true
+  {{- end }}
+  ports:
+    {{- toYaml .Values.service.ports | nindent 4 }}
+  selector:
+    {{- include "coder.selectorLabels" . | nindent 4 }}
+{{- end }}
+

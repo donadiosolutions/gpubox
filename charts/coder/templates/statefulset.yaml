@@ -1,0 +1,196 @@
+{{- $sshAuthorizedKeysEnabled := or (gt (len .Values.ssh.authorizedKeys) 0) .Values.ssh.existingAuthorizedKeysConfigMap -}}
+{{- if and $sshAuthorizedKeysEnabled (not .Values.persistence.home.enabled) -}}
+{{- fail "ssh.authorizedKeys/existingAuthorizedKeysConfigMap requires persistence.home.enabled=true" -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "coder.fullname" . }}
+  labels:
+    {{- include "coder.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "coder.serviceName" . }}
+  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.statefulSet.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  podManagementPolicy: {{ .Values.statefulSet.podManagementPolicy }}
+  revisionHistoryLimit: {{ .Values.statefulSet.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "coder.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "coder.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.pod.hostPID }}
+      hostPID: true
+      {{- end }}
+      {{- if .Values.pod.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      {{- if .Values.pod.priorityClassName }}
+      priorityClassName: {{ .Values.pod.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.pod.runtimeClassName }}
+      runtimeClassName: {{ .Values.pod.runtimeClassName | quote }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "coder.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if or $sshAuthorizedKeysEnabled .Values.initContainers }}
+      initContainers:
+        {{- if $sshAuthorizedKeysEnabled }}
+        - name: ssh-authorized-keys
+          image: "{{ .Values.ssh.initContainer.image.repository }}:{{ .Values.ssh.initContainer.image.tag }}"
+          imagePullPolicy: {{ .Values.ssh.initContainer.image.pullPolicy }}
+          {{- with .Values.ssh.initContainer.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -eu
+              HOME_DIR="{{ .Values.persistence.home.mountPath }}"
+              SSH_DIR="${HOME_DIR}/.ssh"
+              mkdir -p "${SSH_DIR}"
+              chmod 700 "${SSH_DIR}"
+              cp /config/authorized_keys "${SSH_DIR}/authorized_keys"
+              chmod 600 "${SSH_DIR}/authorized_keys"
+              chown -R {{ .Values.ssh.owner.uid }}:{{ .Values.ssh.owner.gid }} "${SSH_DIR}" || true
+          volumeMounts:
+            - name: home
+              mountPath: {{ .Values.persistence.home.mountPath | quote }}
+              readOnly: false
+            - name: ssh-authorized-keys
+              mountPath: /config
+              readOnly: true
+          {{- with .Values.ssh.initContainer.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.initContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      volumes:
+        {{- if .Values.persistence.home.enabled }}
+        - name: home
+          persistentVolumeClaim:
+            claimName: {{ include "coder.homeClaimName" . }}
+        {{- end }}
+        {{- if .Values.persistence.transfer.enabled }}
+        - name: transfer
+          persistentVolumeClaim:
+            claimName: {{ include "coder.transferClaimName" . }}
+        {{- end }}
+        {{- if .Values.persistence.hostRoot.enabled }}
+        - name: host-root
+          hostPath:
+            path: {{ .Values.persistence.hostRoot.hostPath | quote }}
+            type: {{ .Values.persistence.hostRoot.type }}
+        {{- end }}
+        {{- if $sshAuthorizedKeysEnabled }}
+        - name: ssh-authorized-keys
+          configMap:
+            name: {{ include "coder.sshAuthorizedKeysConfigMapName" . }}
+            items:
+              - key: authorized_keys
+                path: authorized_keys
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      containers:
+        - name: {{ include "coder.name" . }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.containerPorts }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: TUNNEL_NAME
+              value: {{ .Values.env.TUNNEL_NAME | quote }}
+            - name: WORKDIR
+              value: {{ .Values.env.WORKDIR | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.home.enabled }}
+            - name: home
+              mountPath: {{ .Values.persistence.home.mountPath | quote }}
+              readOnly: {{ .Values.persistence.home.readOnly }}
+            {{- end }}
+            {{- if .Values.persistence.transfer.enabled }}
+            - name: transfer
+              mountPath: {{ .Values.persistence.transfer.mountPath | quote }}
+              readOnly: {{ .Values.persistence.transfer.readOnly }}
+            {{- end }}
+            {{- if .Values.persistence.hostRoot.enabled }}
+            - name: host-root
+              mountPath: {{ .Values.persistence.hostRoot.mountPath | quote }}
+              readOnly: {{ .Values.persistence.hostRoot.readOnly }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          stdin: {{ .Values.container.stdin }}
+          tty: {{ .Values.container.tty }}
+        {{- with .Values.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

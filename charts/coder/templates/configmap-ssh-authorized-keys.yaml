@@ -1,0 +1,16 @@
+{{- if and .Values.ssh.existingAuthorizedKeysConfigMap (gt (len .Values.ssh.authorizedKeys) 0) -}}
+{{- fail "Provide either ssh.authorizedKeys OR ssh.existingAuthorizedKeysConfigMap (not both)" -}}
+{{- end -}}
+
+{{- if and (gt (len .Values.ssh.authorizedKeys) 0) (not .Values.ssh.existingAuthorizedKeysConfigMap) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "coder.sshAuthorizedKeysConfigMapName" . }}
+  labels:
+    {{- include "coder.labels" . | nindent 4 }}
+data:
+  authorized_keys: |
+    {{- .Values.ssh.authorizedKeys | join "\n" | nindent 4 }}
+{{- end }}
+

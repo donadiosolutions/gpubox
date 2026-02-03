@@ -1,0 +1,89 @@
+# coder
+
+`coder` is a small, opinionated setup for running a **remote, privileged Kubernetes Pod for AI/ML development**.
+It is designed for GPU nodes and a “remote editor” workflow (VS Code CLI tunnel), while still giving you full access to the node when that’s required (privileged container, optional host mounts).
+
+This repository contains two main pieces:
+
+- `vscode/Containerfile`: builds an Ubuntu-based devbox image with common development/debug tooling and the VS Code CLI.
+- `charts/coder`: a Helm chart that deploys the image as a privileged `StatefulSet` with persistent storage and optional GPU scheduling constraints.
+
+## What you get
+
+- **Privileged devbox**: `securityContext.privileged=true` and `hostPID=true` by default (intentionally).
+- **Persistent home**: a PVC mounted at `/home/coder` so your configuration, extensions, caches, and repos survive restarts.
+- **Optional transfer volume**: a second PVC (often RWX) mounted at `/transfer` for moving datasets/models in/out.
+- **VS Code tunnel workflow**: the default container entrypoint runs `code tunnel ...` so you can attach from your local VS Code without exposing inbound ports.
+- **GPU scheduling**: configure `resources.limits.nvidia.com/gpu` and node selection to land on GPU nodes.
+
+## Security note (read this)
+
+This is meant for trusted, operator-controlled clusters only.
+The defaults are powerful and dangerous:
+
+- **Privileged containers** can fully control the host.
+- **hostPID** allows visibility into host processes.
+- **hostPath** mounts (if enabled) can expose the host filesystem.
+
+Use dedicated namespaces, tight RBAC, and (if applicable) Pod Security Admission labels appropriate for privileged workloads.
+
+## Build the image
+
+From the repo root:
+
+```bash
+podman build -f vscode/Containerfile -t ghcr.io/donadiosolutions/gpubox:dev .
+```
+
+### SBOM + provenance notes
+
+This project adds OCI metadata labels in `vscode/Containerfile` (source, revision, created, etc.). Supply them at build time in CI to make your SBOM/provenance more useful.
+
+- **Docker buildx** can emit SBOM + provenance attestations during build.
+- **Podman** can generate an SBOM during build (`podman build --sbom ...`), but provenance attestations are generally attached after the fact using a signing tool (for example, `cosign`).
+
+## Deploy to Kubernetes (Helm)
+
+```bash
+helm upgrade --install coder ./charts/coder \
+  --namespace coder \
+  --create-namespace
+```
+
+### Provide SSH authorized keys (recommended)
+
+The image does **not** bake an `authorized_keys` file. The chart can inject keys into the mounted home volume via an initContainer.
+
+Create a values file (recommended), for example `values.ssh.yaml`:
+
+```yaml
+ssh:
+  authorizedKeys:
+    - ssh-ed25519 AAAA... you@laptop
+```
+
+Then:
+
+```bash
+helm upgrade --install coder ./charts/coder \
+  --namespace coder \
+  -f values.ssh.yaml
+```
+
+### Typical GPU pinning (example)
+
+```yaml
+resources:
+  limits:
+    nvidia.com/gpu: 1
+
+nodeSelector:
+  nvidia.com/gpu.present: "true"
+```
+
+## License
+
+The code in this repository is licensed under the MIT License. See `LICENSE`.
+
+[^vscode-license]: Visual Studio Code / VS Code CLI are redistributed under their own license terms and are not covered by this repository’s MIT license. See Microsoft’s licensing terms for Visual Studio Code and related components.
+

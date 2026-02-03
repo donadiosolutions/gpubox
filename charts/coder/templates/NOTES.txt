@@ -1,0 +1,12 @@
+This chart deploys a privileged devbox StatefulSet (VS Code CLI tunnel).
+
+Pod name:
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -o name
+
+Logs:
+  kubectl -n {{ .Release.Namespace }} logs -f statefulset/{{ include "coder.fullname" . }}
+
+PVCs (if enabled):
+  - {{ include "coder.homeClaimName" . }}
+  - {{ include "coder.transferClaimName" . }}
+

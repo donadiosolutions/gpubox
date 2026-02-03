@@ -1,0 +1,164 @@
+# Default values for coder.
+#
+# This chart intentionally runs with privileged permissions by default.
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespace:
+  # Create a Namespace and apply labels/annotations (useful for PSA labels).
+  # Note: the namespace name is always `.Release.Namespace`.
+  create: false
+  annotations: {}
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/donadiosolutions/gpubox
+  # Defaults to Chart.appVersion when empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  # If empty and create=true, a name is generated using the release fullname.
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+podLabels: {}
+
+pod:
+  hostPID: false
+  hostNetwork: false
+  terminationGracePeriodSeconds: 5
+  priorityClassName: ""
+  runtimeClassName: ""
+
+podSecurityContext: {}
+
+containerSecurityContext:
+  privileged: true
+  allowPrivilegeEscalation: true
+  runAsUser: 0
+
+env:
+  TUNNEL_NAME: bernardo-gpubox
+  WORKDIR: /home/coder/workspace
+
+extraEnv: []
+# Example:
+# extraEnv:
+#   - name: FOO
+#     value: bar
+
+envFrom: []
+
+container:
+  stdin: true
+  tty: true
+
+containerPorts:
+  - name: ssh
+    containerPort: 22
+    protocol: TCP
+
+ssh:
+  # When set, a ConfigMap is created and an initContainer writes the keys to:
+  #   <persistence.home.mountPath>/.ssh/authorized_keys
+  #
+  # Prefer setting these via a separate values file rather than `--set` on the CLI.
+  authorizedKeys: []
+  # If set, use an existing ConfigMap (must contain the key `authorized_keys`).
+  existingAuthorizedKeysConfigMap: ""
+  owner:
+    uid: 1000
+    gid: 1000
+  initContainer:
+    image:
+      repository: busybox
+      tag: "1.36.1"
+      pullPolicy: IfNotPresent
+    securityContext: {}
+    resources: {}
+
+command: []
+args: []
+
+resources:
+  limits: {}
+  requests:
+    nvidia.com/gpu: 1
+    cpu: 4
+    memory: 16Gi
+
+service:
+  enabled: true
+  annotations: {}
+  labels: {}
+  # A StatefulSet typically expects a headless Service for stable DNS.
+  headless: true
+  publishNotReadyAddresses: false
+  type: ClusterIP
+  clusterIP: ""
+  ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+      protocol: TCP
+
+statefulSet:
+  updateStrategy:
+    type: OnDelete
+  podManagementPolicy: OrderedReady
+  revisionHistoryLimit: 10
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+persistence:
+  home:
+    enabled: true
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+    storageClass: block-production
+    accessModes:
+      - ReadWriteOnce
+    volumeMode: Filesystem
+    size: 300Gi
+    mountPath: /home/coder
+    readOnly: false
+  transfer:
+    enabled: true
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+    storageClass: file-production
+    accessModes:
+      - ReadWriteMany
+    volumeMode: Filesystem
+    size: 200Gi
+    mountPath: /transfer
+    readOnly: false
+  hostRoot:
+    enabled: true
+    hostPath: /
+    type: Directory
+    mountPath: /host
+    readOnly: false
+
+extraVolumes: []
+extraVolumeMounts: []
+
+initContainers: []
+sidecars: []

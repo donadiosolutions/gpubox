@@ -1,0 +1,39 @@
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+
+*.swp
+*.swo
+*~
+
+# Helm
+*.tgz
+charts/**/charts/
+
+# Local overrides / secrets
+**/values.local.yaml
+**/values.*.local.yaml
+**/values.secret.yaml
+**/values.*.secret.yaml
+.env
+.env.*
+
+# Common build/cache artifacts
+dist/
+build/
+tmp/
+.cache/
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+
+# Supply-chain tooling outputs
+*.sbom
+sbom*.json
+sbom*.spdx
+*.att
+*.sig
+
