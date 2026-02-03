@@ -127,6 +127,72 @@ nodeSelector:
   nvidia.com/gpu.present: "true"
 ```
 
+## Development (pre-commit)
+
+This repo uses `pre-commit` locally and in CI, including `gitleaks` secret
+scanning, plus basic YAML + Markdown linting.
+
+### Install pre-commit
+
+Recommended (via `pipx`):
+
+```bash
+pipx install pre-commit
+```
+
+Alternative (user install):
+
+```bash
+python3 -m pip install --user pre-commit
+# Ensure ~/.local/bin is on your PATH.
+```
+
+### Install gitleaks
+
+This repo uses the `gitleaks-system` pre-commit hook, which expects `gitleaks`
+to be available on your `PATH`.
+
+- macOS (Homebrew):
+
+```bash
+brew install gitleaks
+```
+
+- Linux (official release binary, example for x86_64):
+
+```bash
+GITLEAKS_VERSION=8.30.0
+curl -fsSL -o gitleaks.tar.gz \
+  "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+tar -xzf gitleaks.tar.gz gitleaks
+sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+rm -f gitleaks.tar.gz gitleaks
+```
+
+- Windows:
+  - Download the `gitleaks_<version>_windows_x64.zip` asset from the GitHub
+    Releases page.
+  - Put `gitleaks.exe` somewhere on your `PATH`.
+
+### Enable the hook
+
+```bash
+pre-commit install
+```
+
+### Run on demand
+
+```bash
+pre-commit run --all-files
+```
+
+### Troubleshooting
+
+- If `pre-commit` fails with `gitleaks: command not found`, install `gitleaks`
+  and retry.
+- Emergency bypass (discouraged): `SKIP=gitleaks-system git commit ...` or
+  `SKIP=gitleaks-system pre-commit run --all-files`.
+
 ## License
 
 The code in this repository is licensed under the MIT License. See `LICENSE`.

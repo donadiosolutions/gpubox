@@ -1,0 +1,71 @@
+name: pre-commit
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          GITLEAKS_VERSION="8.30.0"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          checksums="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+
+          curl -fsSL -o "${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+
+          curl -fsSL -o "${checksums}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${checksums}"
+
+          grep " ${archive}$" "${checksums}" | sha256sum -c -
+
+          tar -xzf "${archive}" gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+          rm -f "${archive}" "${checksums}" gitleaks
+
+          gitleaks version
+
+      - name: Install pre-commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv || {
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends python3-venv
+            python3 -m venv .venv
+          }
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install pre-commit==4.5.1
+          .venv/bin/pre-commit --version
+
+      - name: Run pre-commit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # gitleaks-system uses staged content, and gitleaks' pre-commit mode
+          # scans the staged diff. In CI the working tree is typically clean, so
+          # stage everything on an orphan branch to force a full diff.
+          git checkout --orphan ci-pre-commit-scan
+          git add -A
+
+          .venv/bin/pre-commit run --all-files --show-diff-on-failure --color=always

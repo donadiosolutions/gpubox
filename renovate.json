@@ -1,6 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "pre-commit": {
+    "enabled": true
+  },
   "dependencyDashboard": true,
   "schedule": ["before 3am on Monday"],
   "timezone": "Etc/UTC",
@@ -99,6 +102,10 @@
     {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit hooks"
     }
   ]
 }

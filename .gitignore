@@ -19,6 +19,7 @@ charts/**/charts/
 **/values.*.secret.yaml
 .env
 .env.*
+*.local.*
 
 # Common build/cache artifacts
 dist/
@@ -36,4 +37,3 @@ sbom*.json
 sbom*.spdx
 *.att
 *.sig
-
