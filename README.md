@@ -32,7 +32,7 @@ Use dedicated namespaces, tight RBAC, and (if applicable) Pod Security Admission
 From the repo root:
 
 ```bash
-podman build -f vscode/Containerfile -t ghcr.io/donadiosolutions/gpubox:dev .
+podman build -f ./vscode/Containerfile -t ghcr.io/donadiosolutions/gpubox:dev ./vscode
 ```
 
 ### SBOM + provenance notes

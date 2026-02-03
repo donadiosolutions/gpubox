@@ -1,9 +1,12 @@
 ARG UBUNTU_VERSION=24.04
-FROM ubuntu:${UBUNTU_VERSION}
+ARG UBUNTU_DIGEST=sha256:cd1dba651b3080c3686ecf4e3c4220f026b521fb76978881737d24f200828b2b
+FROM ubuntu:${UBUNTU_VERSION}@${UBUNTU_DIGEST}
 
 ARG UBUNTU_VERSION
+ARG UBUNTU_DIGEST
 ARG DEBIAN_FRONTEND=noninteractive
 ARG VSCODE_CLI_VERSION=1.108.2
+ARG VSCODE_CLI_SHA256=63143aa127677d440d226e04d5da783b36eb81736366d57ef0e3372c40fa3a49
 
 # OCI image metadata labels.
 #
@@ -54,7 +57,7 @@ LABEL org.opencontainers.image.title="${OCI_TITLE}" \
       org.opencontainers.image.created="${OCI_CREATED}" \
       org.opencontainers.image.version="${UBUNTU_VERSION}-vscodecli-${VSCODE_CLI_VERSION}" \
       org.opencontainers.image.ref.name="${UBUNTU_VERSION}-vscodecli-${VSCODE_CLI_VERSION}" \
-      org.opencontainers.image.base.name="ubuntu:${UBUNTU_VERSION}"
+      org.opencontainers.image.base.name="ubuntu:${UBUNTU_VERSION}@${UBUNTU_DIGEST}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash-completion \
@@ -111,6 +114,7 @@ RUN mkdir -p /home/gpubox/workspace \
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
       -o /tmp/vscode-cli.tgz \
+  && echo "${VSCODE_CLI_SHA256}  /tmp/vscode-cli.tgz" | sha256sum -c - \
   && tar -xzf /tmp/vscode-cli.tgz -C /usr/local/bin \
   && rm -f /tmp/vscode-cli.tgz \
   && chmod +x /usr/local/bin/code

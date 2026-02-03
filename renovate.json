@@ -1,0 +1,99 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "dependencyDashboard": true,
+  "schedule": ["before 3am on Monday"],
+  "timezone": "Etc/UTC",
+  "labels": ["dependencies"],
+  "dockerfile": {
+    "fileMatch": ["^vscode/Containerfile$"]
+  },
+  "helm-values": {
+    "fileMatch": ["^charts/gpubox/values\\.yaml$"]
+  },
+  "customDatasources": {
+    "vscodeCliStable": {
+      "defaultRegistryUrlTemplate": "https://update.code.visualstudio.com/api/update/cli-linux-x64/stable/latest",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\":[{\"version\": $$.productVersion, \"digest\": $$.sha256hash}],\"sourceUrl\":\"https://github.com/microsoft/vscode\"}"
+      ]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Ubuntu base image tag + digest (for FROM ubuntu:${UBUNTU_VERSION}@${UBUNTU_DIGEST})",
+      "managerFilePatterns": ["^vscode/Containerfile$"],
+      "matchStrings": [
+        "ARG UBUNTU_VERSION=(?<currentValue>\\S+)\\nARG UBUNTU_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "ubuntu",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "ARG UBUNTU_VERSION={{{newValue}}}\\nARG UBUNTU_DIGEST={{{newDigest}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "VS Code CLI version + sha256 (downloaded from update.code.visualstudio.com)",
+      "managerFilePatterns": ["^vscode/Containerfile$"],
+      "matchStrings": [
+        "ARG VSCODE_CLI_VERSION=(?<currentValue>\\S+)\\nARG VSCODE_CLI_SHA256=(?<currentDigest>[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "custom.vscodeCliStable",
+      "depNameTemplate": "vscode-cli",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{newValue}}}\\nARG VSCODE_CLI_SHA256={{{newDigest}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Helm CLI version used by azure/setup-helm",
+      "managerFilePatterns": ["^\\.github/workflows/build\\.yml$"],
+      "matchStrings": ["version:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "helm/helm",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Sync Helm chart appVersion vscodecli-* to VS Code CLI",
+      "managerFilePatterns": ["^charts/gpubox/Chart\\.yaml$"],
+      "matchStrings": [
+        "appVersion:\\s*\"(?<ubuntuVersion>\\d+\\.\\d+)-vscodecli-(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "custom.vscodeCliStable",
+      "depNameTemplate": "vscode-cli",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "appVersion: \"{{{ubuntuVersion}}}-vscodecli-{{{newValue}}}\""
+    },
+    {
+      "customType": "regex",
+      "description": "Sync Helm chart appVersion ubuntu-* to base image tag",
+      "managerFilePatterns": ["^charts/gpubox/Chart\\.yaml$"],
+      "matchStrings": [
+        "appVersion:\\s*\"(?<currentValue>\\d+\\.\\d+)-vscodecli-(?<vscodeCliVersion>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "ubuntu",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "appVersion: \"{{{newValue}}}-vscodecli-{{{vscodeCliVersion}}}\""
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ubuntu", "busybox"],
+      "groupName": "Container base images"
+    },
+    {
+      "matchDatasources": ["custom"],
+      "matchPackageNames": ["vscode-cli"],
+      "groupName": "VS Code CLI"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    }
+  ]
+}
+
