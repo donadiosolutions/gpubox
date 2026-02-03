@@ -82,6 +82,10 @@
   "packageRules": [
     {
       "matchDatasources": ["docker"],
+      "pinDigests": true
+    },
+    {
+      "matchDatasources": ["docker"],
       "matchPackageNames": ["ubuntu", "busybox"],
       "groupName": "Container base images"
     },
