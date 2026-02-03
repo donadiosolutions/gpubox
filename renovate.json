@@ -82,11 +82,13 @@
   "packageRules": [
     {
       "matchDatasources": ["docker"],
-      "pinDigests": true
+      "matchPackageNames": ["ghcr.io/donadiosolutions/gpubox"],
+      "enabled": false
     },
     {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ubuntu", "busybox"],
+      "pinDigests": true,
       "groupName": "Container base images"
     },
     {
