@@ -100,9 +100,18 @@ jobs:
 
   helm-chart:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    concurrency:
+      group: gh-pages-helm-repo
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
@@ -152,3 +161,47 @@ jobs:
           path: |
             dist/*.tgz
             dist/*.spdx.json
+
+      - name: Publish Helm repo to gh-pages
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pages_branch="gh-pages"
+          pages_url="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          chart_tgz="${{ steps.package.outputs.tgz }}"
+
+          pages_dir="$(mktemp -d)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "${pages_branch}" || true
+
+          if git show-ref --verify --quiet "refs/remotes/origin/${pages_branch}"; then
+            git worktree add -B "${pages_branch}" "${pages_dir}" "origin/${pages_branch}"
+          else
+            git worktree add --detach "${pages_dir}"
+            pushd "${pages_dir}" >/dev/null
+            git checkout --orphan "${pages_branch}"
+            git rm -rf . >/dev/null 2>&1 || true
+            popd >/dev/null
+          fi
+
+          cp -f "${chart_tgz}" "${pages_dir}/"
+          touch "${pages_dir}/.nojekyll"
+
+          helm repo index "${pages_dir}" --url "${pages_url}"
+
+          pushd "${pages_dir}" >/dev/null
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit -m "Publish Helm repo (${GITHUB_SHA::7})"
+            git push origin HEAD:"${pages_branch}"
+          fi
+          popd >/dev/null
+
+          git worktree remove "${pages_dir}"
