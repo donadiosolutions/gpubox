@@ -87,11 +87,34 @@ jobs:
           run-id: ${{ steps.wait_build.outputs.run_id }}
           merge-multiple: true
 
-      - name: Validate chart files
+      - name: Prepare chart files
         shell: bash
         run: |
           set -euo pipefail
-          test -d dist
+          shopt -s nullglob
+
+          # The build workflow uploads `dist/*.tgz` and `dist/*.spdx.json`, but the
+          # artifact payload is flattened to the file basenames when downloaded.
+          # Normalize into `dist/` so the release upload globs are stable.
+          if compgen -G "dist/*.tgz" >/dev/null && compgen -G "dist/*.spdx.json" >/dev/null; then
+            echo "Found chart artifacts in dist/."
+          else
+            mkdir -p dist
+
+            tgz_files=( *.tgz )
+            sbom_files=( *.spdx.json )
+
+            if [ ${#tgz_files[@]} -eq 0 ] || [ ${#sbom_files[@]} -eq 0 ]; then
+              echo "Expected chart artifacts not found in workspace:"
+              ls -la
+              exit 1
+            fi
+
+            mv -f *.tgz dist/
+            mv -f *.spdx.json dist/
+          fi
+
+          ls -la dist
           ls -1 dist/*.tgz >/dev/null
           ls -1 dist/*.spdx.json >/dev/null
 
