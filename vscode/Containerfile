@@ -35,9 +35,9 @@ ARG OCI_TITLE="gpubox"
 ARG OCI_DESCRIPTION="Privileged Ubuntu devbox with VS Code CLI tunnel"
 ARG OCI_AUTHORS="Bernardo Donadio <bernardo@donadio.solutions>"
 ARG OCI_VENDOR="Donadio Solutions"
-ARG OCI_SOURCE="https://github.com/donadiosolutions/coder"
-ARG OCI_URL="https://github.com/donadiosolutions/coder"
-ARG OCI_DOCUMENTATION="https://github.com/donadiosolutions/coder#readme"
+ARG OCI_SOURCE="https://github.com/donadiosolutions/gpubox"
+ARG OCI_URL="https://github.com/donadiosolutions/gpubox"
+ARG OCI_DOCUMENTATION="https://github.com/donadiosolutions/gpubox#readme"
 ARG OCI_LICENSES="MIT"
 ARG OCI_REVISION=""
 ARG OCI_CREATED=""
@@ -89,24 +89,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-  if id -u coder >/dev/null 2>&1; then \
+  if id -u gpubox >/dev/null 2>&1; then \
     true; \
   elif getent passwd 1000 >/dev/null 2>&1; then \
     old_user="$(getent passwd 1000 | cut -d: -f1)"; \
     old_group="$(getent group 1000 | cut -d: -f1 || true)"; \
-    if [ -n "${old_group}" ] && [ "${old_group}" != "coder" ]; then groupmod -n coder "${old_group}"; fi; \
-    if [ "${old_user}" != "coder" ]; then usermod -l coder "${old_user}"; fi; \
-    usermod -d /home/coder -m coder; \
+    if [ -n "${old_group}" ] && [ "${old_group}" != "gpubox" ]; then groupmod -n gpubox "${old_group}"; fi; \
+    if [ "${old_user}" != "gpubox" ]; then usermod -l gpubox "${old_user}"; fi; \
+    usermod -d /home/gpubox -m gpubox; \
   else \
-    useradd -m -u 1000 -s /bin/bash coder; \
+    useradd -m -u 1000 -s /bin/bash gpubox; \
   fi; \
-  echo "coder ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/coder; \
-  chmod 0440 /etc/sudoers.d/coder
+  echo "gpubox ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/gpubox; \
+  chmod 0440 /etc/sudoers.d/gpubox
 
-RUN mkdir -p /home/coder/workspace \
-  && mkdir -p /home/coder/.ssh \
-  && chown -R coder:coder /home/coder \
-  && chmod 700 /home/coder/.ssh
+RUN mkdir -p /home/gpubox/workspace \
+  && mkdir -p /home/gpubox/.ssh \
+  && chown -R gpubox:gpubox /home/gpubox \
+  && chmod 700 /home/gpubox/.ssh
 
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
@@ -118,6 +118,6 @@ RUN curl -fsSL \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-ENV HOME=/home/coder USER=coder
+ENV HOME=/home/gpubox USER=gpubox
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

@@ -1,18 +1,18 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "coder.name" -}}
+{{- define "gpubox.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "coder.fullname" -}}
+{{- define "gpubox.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-{{- $name := include "coder.name" . -}}
+{{- $name := include "gpubox.name" . -}}
 {{- if contains $name .Release.Name -}}
 {{- .Release.Name | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -24,24 +24,24 @@ Create a default fully qualified app name.
 {{/*
 Chart label.
 */}}
-{{- define "coder.chart" -}}
+{{- define "gpubox.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
 Selector labels.
 */}}
-{{- define "coder.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "coder.name" . }}
+{{- define "gpubox.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "gpubox.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
 Common labels.
 */}}
-{{- define "coder.labels" -}}
-helm.sh/chart: {{ include "coder.chart" . }}
-{{ include "coder.selectorLabels" . }}
+{{- define "gpubox.labels" -}}
+helm.sh/chart: {{ include "gpubox.chart" . }}
+{{ include "gpubox.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -51,9 +51,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 ServiceAccount name.
 */}}
-{{- define "coder.serviceAccountName" -}}
+{{- define "gpubox.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
-{{- default (include "coder.fullname" .) .Values.serviceAccount.name -}}
+{{- default (include "gpubox.fullname" .) .Values.serviceAccount.name -}}
 {{- else -}}
 {{- default "default" .Values.serviceAccount.name -}}
 {{- end -}}
@@ -62,36 +62,36 @@ ServiceAccount name.
 {{/*
 Service name (shared between Service and StatefulSet.serviceName).
 */}}
-{{- define "coder.serviceName" -}}
-{{- include "coder.fullname" . -}}
+{{- define "gpubox.serviceName" -}}
+{{- include "gpubox.fullname" . -}}
 {{- end -}}
 
 {{/*
 PVC names.
 */}}
-{{- define "coder.homeClaimName" -}}
+{{- define "gpubox.homeClaimName" -}}
 {{- if .Values.persistence.home.existingClaim -}}
 {{- .Values.persistence.home.existingClaim -}}
 {{- else -}}
-{{- printf "%s-home" (include "coder.fullname" .) -}}
+{{- printf "%s-home" (include "gpubox.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "coder.transferClaimName" -}}
+{{- define "gpubox.transferClaimName" -}}
 {{- if .Values.persistence.transfer.existingClaim -}}
 {{- .Values.persistence.transfer.existingClaim -}}
 {{- else -}}
-{{- printf "%s-transfer" (include "coder.fullname" .) -}}
+{{- printf "%s-transfer" (include "gpubox.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
 SSH authorized_keys ConfigMap name.
 */}}
-{{- define "coder.sshAuthorizedKeysConfigMapName" -}}
+{{- define "gpubox.sshAuthorizedKeysConfigMapName" -}}
 {{- if .Values.ssh.existingAuthorizedKeysConfigMap -}}
 {{- .Values.ssh.existingAuthorizedKeysConfigMap -}}
 {{- else -}}
-{{- printf "%s-ssh-authorized-keys" (include "coder.fullname" .) -}}
+{{- printf "%s-ssh-authorized-keys" (include "gpubox.fullname" .) -}}
 {{- end -}}
 {{- end -}}

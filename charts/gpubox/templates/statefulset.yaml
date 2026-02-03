@@ -6,11 +6,11 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "coder.fullname" . }}
+  name: {{ include "gpubox.fullname" . }}
   labels:
-    {{- include "coder.labels" . | nindent 4 }}
+    {{- include "gpubox.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "coder.serviceName" . }}
+  serviceName: {{ include "gpubox.serviceName" . }}
   replicas: {{ .Values.replicaCount }}
   {{- with .Values.statefulSet.updateStrategy }}
   updateStrategy:
@@ -20,11 +20,11 @@ spec:
   revisionHistoryLimit: {{ .Values.statefulSet.revisionHistoryLimit }}
   selector:
     matchLabels:
-      {{- include "coder.selectorLabels" . | nindent 6 }}
+      {{- include "gpubox.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "coder.selectorLabels" . | nindent 8 }}
+        {{- include "gpubox.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -50,7 +50,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "coder.serviceAccountName" . }}
+      serviceAccountName: {{ include "gpubox.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -114,12 +114,12 @@ spec:
         {{- if .Values.persistence.home.enabled }}
         - name: home
           persistentVolumeClaim:
-            claimName: {{ include "coder.homeClaimName" . }}
+            claimName: {{ include "gpubox.homeClaimName" . }}
         {{- end }}
         {{- if .Values.persistence.transfer.enabled }}
         - name: transfer
           persistentVolumeClaim:
-            claimName: {{ include "coder.transferClaimName" . }}
+            claimName: {{ include "gpubox.transferClaimName" . }}
         {{- end }}
         {{- if .Values.persistence.hostRoot.enabled }}
         - name: host-root
@@ -130,7 +130,7 @@ spec:
         {{- if $sshAuthorizedKeysEnabled }}
         - name: ssh-authorized-keys
           configMap:
-            name: {{ include "coder.sshAuthorizedKeysConfigMapName" . }}
+            name: {{ include "gpubox.sshAuthorizedKeysConfigMapName" . }}
             items:
               - key: authorized_keys
                 path: authorized_keys
@@ -139,7 +139,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       containers:
-        - name: {{ include "coder.name" . }}
+        - name: {{ include "gpubox.name" . }}
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.command }}

@@ -4,9 +4,8 @@ Pod name:
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -o name
 
 Logs:
-  kubectl -n {{ .Release.Namespace }} logs -f statefulset/{{ include "coder.fullname" . }}
+  kubectl -n {{ .Release.Namespace }} logs -f statefulset/{{ include "gpubox.fullname" . }}
 
 PVCs (if enabled):
-  - {{ include "coder.homeClaimName" . }}
-  - {{ include "coder.transferClaimName" . }}
-
+  - {{ include "gpubox.homeClaimName" . }}
+  - {{ include "gpubox.transferClaimName" . }}

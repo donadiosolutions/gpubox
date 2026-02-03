@@ -1,4 +1,4 @@
-# Default values for coder.
+# Default values for gpubox.
 #
 # This chart intentionally runs with privileged permissions by default.
 
@@ -51,7 +51,7 @@ containerSecurityContext:
 
 env:
   TUNNEL_NAME: bernardo-gpubox
-  WORKDIR: /home/coder/workspace
+  WORKDIR: /home/gpubox/workspace
 
 extraEnv: []
 # Example:
@@ -136,7 +136,7 @@ persistence:
       - ReadWriteOnce
     volumeMode: Filesystem
     size: 300Gi
-    mountPath: /home/coder
+    mountPath: /home/gpubox
     readOnly: false
   transfer:
     enabled: true

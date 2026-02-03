@@ -5,9 +5,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "coder.serviceName" . }}
+  name: {{ include "gpubox.serviceName" . }}
   labels:
-    {{- include "coder.labels" . | nindent 4 }}
+    {{- include "gpubox.labels" . | nindent 4 }}
     {{- with .Values.service.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -28,6 +28,5 @@ spec:
   ports:
     {{- toYaml .Values.service.ports | nindent 4 }}
   selector:
-    {{- include "coder.selectorLabels" . | nindent 4 }}
+    {{- include "gpubox.selectorLabels" . | nindent 4 }}
 {{- end }}
-

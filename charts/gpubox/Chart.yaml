@@ -1,5 +1,5 @@
 apiVersion: v2
-name: coder
+name: gpubox
 description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
 type: application
 version: 0.1.0

@@ -110,7 +110,7 @@ jobs:
           version: v3.14.4
 
       - name: Helm lint
-        run: helm lint charts/coder
+        run: helm lint charts/gpubox
 
       - name: Package chart
         id: package
@@ -118,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          helm package charts/coder --destination dist
+          helm package charts/gpubox --destination dist
           chart_tgz="$(ls -1 dist/*.tgz | head -n 1)"
           echo "tgz=${chart_tgz}" >>"$GITHUB_OUTPUT"
 
@@ -127,7 +127,7 @@ jobs:
         with:
           file: ${{ steps.package.outputs.tgz }}
           format: spdx-json
-          output-file: dist/coder-chart.sbom.spdx.json
+          output-file: dist/gpubox-chart.sbom.spdx.json
           upload-artifact: "false"
           upload-release-assets: "false"
 
@@ -142,7 +142,7 @@ jobs:
         uses: actions/attest-sbom@v1
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
-          sbom-path: dist/coder-chart.sbom.spdx.json
+          sbom-path: dist/gpubox-chart.sbom.spdx.json
 
       - name: Upload chart artifacts
         uses: actions/upload-artifact@v4
@@ -152,4 +152,3 @@ jobs:
           path: |
             dist/*.tgz
             dist/*.spdx.json
-

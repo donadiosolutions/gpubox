@@ -1,18 +1,18 @@
-# coder Helm chart
+# gpubox Helm chart
 
 Deploys a privileged GPU devbox as a `StatefulSet`, running the container built from `vscode/Containerfile`.
 
 ## Install
 
 ```bash
-helm upgrade --install gpubox ./charts/coder --namespace gpubox --create-namespace
+helm upgrade --install gpubox ./charts/gpubox --namespace gpubox --create-namespace
 ```
 
 If your cluster enforces Kubernetes Pod Security Admission (PSA), you likely need privileged labels on the namespace.
 You can have the chart apply them:
 
 ```bash
-helm upgrade --install gpubox ./charts/coder \
+helm upgrade --install gpubox ./charts/gpubox \
   --namespace gpubox \
   --set namespace.create=true
 ```
