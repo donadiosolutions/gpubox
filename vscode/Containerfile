@@ -32,12 +32,12 @@ ARG VSCODE_CLI_VERSION=1.108.2
 #   cosign attest --keyless --type slsaprovenance --predicate provenance.json ghcr.io/your-org/gpubox:...
 ARG OCI_TITLE="gpubox"
 ARG OCI_DESCRIPTION="Privileged Ubuntu devbox with VS Code CLI tunnel"
-ARG OCI_AUTHORS=""
-ARG OCI_VENDOR=""
-ARG OCI_SOURCE=""
-ARG OCI_URL=""
-ARG OCI_DOCUMENTATION=""
-ARG OCI_LICENSES="NOASSERTION"
+ARG OCI_AUTHORS="Bernardo Donadio <bernardo@donadio.solutions>"
+ARG OCI_VENDOR="Donadio Solutions"
+ARG OCI_SOURCE="https://github.com/donadiosolutions/coder"
+ARG OCI_URL="https://github.com/donadiosolutions/coder"
+ARG OCI_DOCUMENTATION="https://github.com/donadiosolutions/coder#readme"
+ARG OCI_LICENSES="MIT"
 ARG OCI_REVISION=""
 ARG OCI_CREATED=""
 
