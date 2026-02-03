@@ -3,9 +3,9 @@ entries:
   gpubox:
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-03T09:07:57.145704573Z"
+    created: "2026-02-03T09:08:24.598468675Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
-    digest: ccfe89db10d22ae5d90446c99bab611586abc32c3b1c3b05d7806754ed3133df
+    digest: 4a324cc7283e8cb61f31fb00ed8dee7b5208f8e2d3357213ca3eaadd3a0b933d
     keywords:
     - vscode
     - tunnel
@@ -17,4 +17,4 @@ entries:
     urls:
     - https://donadiosolutions.github.io/gpubox/gpubox-0.1.0.tgz
     version: 0.1.0
-generated: "2026-02-03T09:07:57.144862392Z"
+generated: "2026-02-03T09:08:24.597704707Z"
