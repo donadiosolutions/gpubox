@@ -2,10 +2,10 @@ apiVersion: v1
 entries:
   gpubox:
   - apiVersion: v2
-    appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-10T18:26:41.632858758Z"
+    appVersion: 24.04-vscodecli-1.109.1
+    created: "2026-02-10T18:32:59.028053828Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
-    digest: d4b3f1199e12f5c56773b1ec845acf119c0baad42d0530d3770e63920b3e5e9f
+    digest: 44dd646e54665fabcfbf6180f6fa8058f3886df58abc659d305c0e5096b1425b
     keywords:
     - vscode
     - tunnel
@@ -19,7 +19,7 @@ entries:
     version: 0.2.3
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-10T18:26:41.632298201Z"
+    created: "2026-02-10T18:32:59.027442385Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: f011e03fb15d5b50bae914ba0651dca5bd7035dc6245c89f0afbc2e8eb74c4b8
     keywords:
@@ -35,7 +35,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-10T18:26:41.631687902Z"
+    created: "2026-02-10T18:32:59.026665212Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 7a011de2cc384e8b36c216a78de9f150facd19b613a3037a36658e3564b77a52
     keywords:
@@ -51,7 +51,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-10T18:26:41.630498362Z"
+    created: "2026-02-10T18:32:59.025450417Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 365fdfc6ae4424caeccacf7bc7e20f1306d228fec7161b5626328e0c33869800
     keywords:
@@ -67,7 +67,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-02-10T18:26:41.629714589Z"
+    created: "2026-02-10T18:32:59.024869601Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: a049514cf32d6d780cead279701c150b5a7ca10c10d6340a144efcd9f3dec72f
     keywords:
@@ -81,4 +81,4 @@ entries:
     urls:
     - https://donadiosolutions.github.io/gpubox/gpubox-0.1.0.tgz
     version: 0.1.0
-generated: "2026-02-10T18:26:41.628988844Z"
+generated: "2026-02-10T18:32:59.024155517Z"
