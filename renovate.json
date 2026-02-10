@@ -115,6 +115,11 @@
       "pinDigests": false
     },
     {
+      "matchPackageNames": ["helm/helm"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
     },
