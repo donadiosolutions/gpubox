@@ -15,8 +15,10 @@ This repository contains two main pieces:
 
 ## What you get
 
-- **Privileged devbox**: `securityContext.privileged=true` and `hostPID=true` by
-  default (intentionally).
+- **Privileged devbox**: `containerSecurityContext.privileged=true` by default
+  (intentionally).
+- **Optional host PID namespace**: `pod.hostPID=false` by default; set
+  `pod.hostPID=true` if you need to see host processes.
 - **Persistent home**: a PVC mounted at `/home/gpubox` so your configuration,
   extensions, caches, and repos survive restarts.
 - **Optional transfer volume**: a second PVC (often RWX) mounted at `/transfer`
@@ -33,7 +35,7 @@ This is meant for trusted, operator-controlled clusters only. The defaults are
 powerful and dangerous:
 
 - **Privileged containers** can fully control the host.
-- **hostPID** allows visibility into host processes.
+- **hostPID** (if enabled) allows visibility into host processes.
 - **hostPath** mounts (if enabled) can expose the host filesystem.
 
 Use dedicated namespaces, tight RBAC, and (if applicable) Pod Security Admission
