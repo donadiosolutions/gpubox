@@ -19,7 +19,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/donadiosolutions/gpubox
-  # Defaults to v<Chart.version> when empty (for example, v0.2.1).
+  # Defaults to v<Chart.version> when empty (for example, v0.2.2).
   tag: ""
   pullPolicy: IfNotPresent
 
