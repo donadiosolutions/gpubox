@@ -205,3 +205,16 @@ jobs:
           popd >/dev/null
 
           git worktree remove "${pages_dir}"
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - container-image
+      - helm-chart
+    permissions:
+      contents: write
+      actions: read
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
+    with:
+      tag: ${{ github.ref_name }}

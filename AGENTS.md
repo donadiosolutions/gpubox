@@ -11,7 +11,7 @@ This repository contains a small “remote devbox” stack:
 - `vscode/entrypoint.sh`: container entrypoint (starts the VS Code tunnel workflow).
 - `charts/gpubox/`: Helm chart sources (`Chart.yaml`, `values.yaml`, `values.schema.json`).
 - `.github/workflows/build.yml`: CI that builds/pushes the image and packages the chart.
-- `.github/workflows/release.yml`: CI that creates/updates GitHub Releases from `v*` tags.
+- `.github/workflows/release.yml`: reusable CI workflow that creates/updates GitHub Releases.
 
 ## Common commands
 
@@ -40,9 +40,9 @@ This repository contains a small “remote devbox” stack:
 - `build.yml` runs on `main` pushes and `v*` tags, and is responsible for building/pushing:
   - the container image to GHCR
   - the Helm chart package + SBOM, and publishing the Helm repo to `gh-pages`
-- `release.yml` runs on `v*` tags and creates/updates a GitHub Release for that tag.
-  - It waits for the matching `build.yml` run to complete successfully.
-  - It downloads the `helm-chart` artifact from that run.
+- For `v*` tag pushes, `build.yml` calls `release.yml` after successful build jobs.
+- `release.yml` creates/updates a GitHub Release for that tag.
+  - It downloads the `helm-chart` artifact from the same workflow run.
   - It creates a release body with a stable install template plus GitHub-generated notes.
   - It uploads `dist/*.tgz` and `dist/*.spdx.json` to the GitHub Release as assets.
 
@@ -55,8 +55,9 @@ git push origin vX.Y.Z
 
 ### Fix a failed release
 
-Re-run the `release` workflow for that tag in the GitHub Actions UI.
-This is safe and idempotent because the workflow updates existing releases.
+Re-run the `build` workflow for that tag in the GitHub Actions UI (or re-run only the
+`release` job from the same run).
+This is safe and idempotent because the release job updates existing releases.
 
 ## Version bump checklist
 

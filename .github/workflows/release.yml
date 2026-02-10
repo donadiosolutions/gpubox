@@ -1,90 +1,31 @@
 name: release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag (for example, v1.2.3)
+        required: true
+        type: string
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
   github-release:
+    if: startsWith(inputs.tag, 'v')
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for build workflow
-        id: wait_build
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const workflow_id = "build.yml";
-
-            const tag = context.ref.replace("refs/tags/", "");
-            const expectedSha = context.sha;
-
-            const pollIntervalMs = 15 * 1000;
-            const maxAttempts = 120;
-
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              const { data } = await github.rest.actions.listWorkflowRuns({
-                owner,
-                repo,
-                workflow_id,
-                per_page: 20,
-              });
-
-              const runs = data.workflow_runs || [];
-              const matchingRuns = runs.filter((run) => {
-                return (
-                  run.event === "push" &&
-                  run.head_branch === tag &&
-                  run.head_sha === expectedSha
-                );
-              });
-
-              if (matchingRuns.length === 0) {
-                core.info(
-                  `No matching build.yml run yet for ${tag}@${expectedSha} (attempt ${attempt}/${maxAttempts})`,
-                );
-              } else {
-                const run = matchingRuns[0];
-                core.info(
-                  `Found build.yml run ${run.id} (status=${run.status}, conclusion=${run.conclusion})`,
-                );
-
-                if (run.status === "completed") {
-                  if (run.conclusion !== "success") {
-                    throw new Error(
-                      `build.yml run ${run.id} completed with conclusion=${run.conclusion}`,
-                    );
-                  }
-
-                  core.setOutput("run_id", String(run.id));
-                  return;
-                }
-              }
-
-              await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-            }
-
-            throw new Error(
-              `Timed out waiting for build.yml to complete for ${tag}@${expectedSha}`,
-            );
-
       - name: Download helm-chart artifact
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: helm-chart
           path: .
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ steps.wait_build.outputs.run_id }}
           merge-multiple: true
 
       - name: Prepare chart files
@@ -126,7 +67,7 @@ jobs:
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const tag = context.ref.replace("refs/tags/", "");
+            const tag = "${{ inputs.tag }}";
 
             const pagesUrl = `https://${owner}.github.io/${repo}`;
             const image = `ghcr.io/${owner}/gpubox:${tag}`;
@@ -171,8 +112,8 @@ jobs:
       - name: Create GitHub Release
         uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
         with:
-          tag: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
           bodyFile: release-body.md
           omitDraftDuringUpdate: true
           omitBodyDuringUpdate: true
