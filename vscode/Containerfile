@@ -7,6 +7,14 @@ ARG UBUNTU_DIGEST
 ARG DEBIAN_FRONTEND=noninteractive
 ARG VSCODE_CLI_VERSION=1.109.1
 ARG VSCODE_CLI_SHA256=9d3dbc53a5572534a21ba6f72601c4dd149482abc79b78a14020dc5ef31913e3
+ARG GO_VERSION=1.26.0
+ARG GO_SHA256=aac1b08a0fb0c4e0a7c1555beb7b59180b05dfc5a3d62e40e9de90cd42f88235
+ARG NODE_VERSION=24.13.1
+ARG NODE_SHA256=30215f90ea3cd04dfbc06e762c021393fa173a1d392974298bbc871a8e461089
+ARG MINIFORGE_VERSION=26.1.0-0
+ARG MINIFORGE_SHA256=127b5e14cfe6c83b787f624487cdc2168645ed82fdca1b0c1937caa086aed6d5
+ARG UV_VERSION=0.10.2
+ARG UV_SHA256=6aa4576c31f791c0b9d4739e256d07358d45e7535695287fec03cf6839e25512
 
 # OCI image metadata labels.
 #
@@ -61,8 +69,10 @@ LABEL org.opencontainers.image.title="${OCI_TITLE}" \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash-completion \
+      bzip2 \
       build-essential \
       ca-certificates \
+      cargo \
       cmake \
       curl \
       dnsutils \
@@ -74,6 +84,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       iproute2 \
       iputils-ping \
       less \
+      libbz2-dev \
+      libffi-dev \
+      liblzma-dev \
+      libncursesw5-dev \
+      libreadline-dev \
+      libsqlite3-dev \
+      libssl-dev \
       lsof \
       mtr \
       openssh-client \
@@ -81,14 +98,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       pkg-config \
       python3 \
       python3-pip \
+      pipx \
       python3-venv \
       rsync \
       strace \
       sudo \
+      tk-dev \
       tree \
       tini \
       tmux \
       vim \
+      xz-utils \
+      zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
@@ -111,17 +132,60 @@ RUN mkdir -p /home/gpubox/workspace \
   && chown -R gpubox:gpubox /home/gpubox \
   && chmod 700 /home/gpubox/.ssh
 
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tgz \
+  && echo "${GO_SHA256}  /tmp/go.tgz" | sha256sum -c - \
+  && rm -rf /usr/local/go \
+  && tar -xzf /tmp/go.tgz -C /usr/local \
+  && rm -f /tmp/go.tgz \
+  && ln -sf /usr/local/go/bin/go /usr/local/bin/go \
+  && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt \
+  && ln -sf /usr/local/bin/go /usr/local/bin/golang \
+  && mkdir -p /usr/local/lib/nodejs \
+  && curl -fsSL \
+      "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+      -o /tmp/node.tar.xz \
+  && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum -c - \
+  && tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs \
+  && rm -f /tmp/node.tar.xz \
+  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/node /usr/local/bin/node \
+  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/npm /usr/local/bin/npm \
+  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/npx /usr/local/bin/npx \
+  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/corepack /usr/local/bin/corepack
+
+RUN curl -fsSL \
+      "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh" \
+      -o /tmp/miniforge.sh \
+  && echo "${MINIFORGE_SHA256}  /tmp/miniforge.sh" | sha256sum -c - \
+  && bash /tmp/miniforge.sh -b -p /opt/conda \
+  && rm -f /tmp/miniforge.sh \
+  && /opt/conda/bin/conda config --system --set auto_update_conda false \
+  && /opt/conda/bin/conda clean -afy \
+  && curl -fsSL \
+      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+      -o /tmp/uv.tgz \
+  && echo "${UV_SHA256}  /tmp/uv.tgz" | sha256sum -c - \
+  && tar -xzf /tmp/uv.tgz -C /tmp \
+  && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
+  && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uvx /usr/local/bin/uvx \
+  && rm -rf /tmp/uv.tgz /tmp/uv-x86_64-unknown-linux-gnu \
+  && chown -R gpubox:gpubox /opt/conda
+
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
       -o /tmp/vscode-cli.tgz \
   && echo "${VSCODE_CLI_SHA256}  /tmp/vscode-cli.tgz" | sha256sum -c - \
   && tar -xzf /tmp/vscode-cli.tgz -C /usr/local/bin \
   && rm -f /tmp/vscode-cli.tgz \
-  && chmod +x /usr/local/bin/code
+  && chmod +x /usr/local/bin/code \
+  && command -v pipx \
+  && command -v npx
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-ENV HOME=/home/gpubox USER=gpubox
+ENV HOME=/home/gpubox \
+    USER=gpubox \
+    CONDA_DIR=/opt/conda \
+    PATH=/opt/conda/bin:/home/gpubox/.cargo/bin:${PATH}
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]

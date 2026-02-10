@@ -29,6 +29,34 @@
       "transformTemplates": [
         "{\"releases\":[{\"version\": $$.productVersion & \"@\" & $$.sha256hash}],\"sourceUrl\":\"https://github.com/microsoft/vscode\"}"
       ]
+    },
+    "goLinuxAmd64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://go.dev/dl/?mode=json",
+      "format": "json",
+      "transformTemplates": [
+        "{ \"releases\": $map($$[stable=true], function($r) { $f := $r.files[os='linux' and arch='amd64' and kind='archive'][0]; { \"version\": $substring($r.version, 2) & \"@\" & $f.sha256 } }), \"sourceUrl\": \"https://go.dev/dl/\" }"
+      ]
+    },
+    "nodeLtsLinuxX64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://nodejs.org/dist/latest-v{{packageName}}.x/SHASUMS256.txt",
+      "format": "plain",
+      "transformTemplates": [
+        "{ $line := $$.releases[$contains(version, \"-linux-x64.tar.xz\")][0].version; $parts := $split($line, \"  \"); $filenameParts := $split($parts[1], \"-\"); { \"releases\": [{ \"version\": $substring($filenameParts[1], 1) & \"@\" & $parts[0] }], \"sourceUrl\": \"https://nodejs.org/download/release/\" } }"
+      ]
+    },
+    "miniforgeLinuxX64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://api.github.com/repos/conda-forge/miniforge/releases/latest",
+      "format": "json",
+      "transformTemplates": [
+        "{ \"releases\": [{ \"version\": $$.tag_name & \"@\" & $split($$.assets[name='Miniforge3-Linux-x86_64.sh'][0].digest, \":\")[1] }], \"sourceUrl\": \"https://github.com/conda-forge/miniforge\" }"
+      ]
+    },
+    "uvLinuxX64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://api.github.com/repos/astral-sh/uv/releases/latest",
+      "format": "json",
+      "transformTemplates": [
+        "{ \"releases\": [{ \"version\": $$.tag_name & \"@\" & $split($$.assets[name='uv-x86_64-unknown-linux-gnu.tar.gz'][0].digest, \":\")[1] }], \"sourceUrl\": \"https://github.com/astral-sh/uv\" }"
+      ]
     }
   },
   "customManagers": [
@@ -56,6 +84,59 @@
       "depNameTemplate": "vscode-cli",
       "versioningTemplate": "loose",
       "autoReplaceStringTemplate": "ARG VSCODE_CLI_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG VSCODE_CLI_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Go version + sha256 (linux-amd64 tarball)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG GO_VERSION=(?<currentVersion>\\S+)\\nARG GO_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.goLinuxAmd64WithShaBlock",
+      "depNameTemplate": "golang",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG GO_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG GO_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Node.js LTS version + sha256 (linux-x64 tar.xz)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG NODE_VERSION=(?<currentVersion>(?<currentMajor>\\d+)\\.\\d+\\.\\d+)\\nARG NODE_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.nodeLtsLinuxX64WithShaBlock",
+      "depNameTemplate": "nodejs-lts",
+      "packageNameTemplate": "{{{currentMajor}}}",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG NODE_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG NODE_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Miniforge version + sha256 (linux-x86_64 installer)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG MINIFORGE_VERSION=(?<currentVersion>\\S+)\\nARG MINIFORGE_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.miniforgeLinuxX64WithShaBlock",
+      "depNameTemplate": "miniforge",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG MINIFORGE_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG MINIFORGE_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "uv version + sha256 (linux-x86_64 tarball)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG UV_VERSION=(?<currentVersion>\\S+)\\nARG UV_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.uvLinuxX64WithShaBlock",
+      "depNameTemplate": "uv",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG UV_VERSION={{{replace \"@.*\" \"\" newValue}}}\\nARG UV_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
     },
     {
       "customType": "regex",
@@ -107,6 +188,16 @@
       "matchDatasources": ["custom.vscodeCliStable", "custom.vscodeCliStableWithShaBlock"],
       "matchPackageNames": ["vscode-cli"],
       "groupName": "VS Code CLI"
+    },
+    {
+      "matchDatasources": [
+        "custom.goLinuxAmd64WithShaBlock",
+        "custom.nodeLtsLinuxX64WithShaBlock",
+        "custom.miniforgeLinuxX64WithShaBlock",
+        "custom.uvLinuxX64WithShaBlock"
+      ],
+      "matchPackageNames": ["golang", "nodejs-lts", "miniforge", "uv"],
+      "groupName": "Container toolchains"
     },
     {
       "matchDatasources": ["docker"],
