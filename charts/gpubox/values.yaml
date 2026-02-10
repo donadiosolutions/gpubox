@@ -50,7 +50,7 @@ containerSecurityContext:
   runAsUser: 0
 
 env:
-  TUNNEL_NAME: bernardo-gpubox
+  TUNNEL_NAME: gpubox
   WORKDIR: /home/gpubox/workspace
 
 extraEnv: []
