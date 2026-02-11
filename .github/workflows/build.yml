@@ -146,18 +146,36 @@ jobs:
           upload-artifact: "false"
           upload-release-assets: "false"
 
-      - name: Attest chart provenance
+      - name: Attest chart package provenance (SLSA v1)
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
 
-      - name: Attest chart SBOM
+      - name: Attest chart package SBOM (SPDX 2.3)
         if: github.event_name != 'pull_request'
         uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
           sbom-path: dist/gpubox-chart.sbom.spdx.json
+
+      - name: Summarize chart attestation scope
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          {
+            echo "### Chart Attestation Scope"
+            echo
+            echo "Two chart attestations are expected and intentional for the same chart package subject:"
+            echo "- \`Attest chart package provenance (SLSA v1)\`"
+            echo "  - Predicate type: \`https://slsa.dev/provenance/v1\`"
+            echo "  - Purpose: capture build provenance metadata for \`${{ steps.package.outputs.tgz }}\`."
+            echo "- \`Attest chart package SBOM (SPDX 2.3)\`"
+            echo "  - Predicate type: \`https://spdx.dev/Document/v2.3\`"
+            echo "  - Purpose: attach SBOM assertions from \`dist/gpubox-chart.sbom.spdx.json\` to the same chart package subject."
+            echo
+            echo "These attestations share the chart package digest by design but differ by predicate content."
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Upload chart artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

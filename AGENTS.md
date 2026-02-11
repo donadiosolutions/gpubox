@@ -36,6 +36,21 @@ This repository contains a small “remote devbox” stack:
   - `index.yaml`
   - `gpubox-*.tgz`
 
+## CI runtime expectations
+
+- As of 2026-02-11, successful `push` runs show `container-image` durations around:
+  - median: ~140s (~2m20s)
+  - p95: ~442s (~7m22s)
+  - max observed: ~462s (~7m42s)
+- Expected duration for `container-image`: roughly 2 to 8 minutes.
+- Healthy margin before escalation: up to 12 minutes total.
+- Agents must keep active monitoring for the entire `container-image` step
+  (`gh run watch` and/or periodic `gh run view` polling).
+- Do not assume a hang before the healthy margin unless logs and step status stop
+  progressing.
+- If the step exceeds 12 minutes with no progression, escalate with focused log
+  inspection and rerun/cancel strategy.
+
 ## Releases
 
 - `build.yml` runs on `main` pushes and `v*` tags, and is responsible for building/pushing:
