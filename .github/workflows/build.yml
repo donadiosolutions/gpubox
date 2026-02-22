@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect Containerfile changes
+      - name: Detect image context changes
         id: changes
         shell: bash
         run: |
@@ -66,22 +66,100 @@ jobs:
           fi
 
           changed="false"
+          changed_vscode_files=()
+          effective_vscode_files=()
+          ignored_vscode_records=()
+          ignore_files=()
+
+          if [[ -f "vscode/.containerignore" ]]; then
+            ignore_files+=("vscode/.containerignore")
+          fi
+          if [[ -f "vscode/.dockerignore" ]]; then
+            ignore_files+=("vscode/.dockerignore")
+          fi
+
           if [[ -z "${base_sha}" ]]; then
             # No comparison base (for example, root commit); build defensively.
             changed="true"
-          elif git diff --name-only "${base_sha}" "${head_sha}" -- vscode/Containerfile | grep -qx "vscode/Containerfile"; then
-            changed="true"
+          else
+            # Any effective change in the image build context (./vscode) should
+            # trigger an image rebuild.
+            while IFS= read -r -d '' path; do
+              changed_vscode_files+=("${path}")
+            done < <(git diff --name-only -z "${base_sha}" "${head_sha}" -- 'vscode/')
+
+            if [[ ${#changed_vscode_files[@]} -gt 0 ]]; then
+              for path in "${changed_vscode_files[@]}"; do
+                rel_path="${path#vscode/}"
+
+                # Safety: only evaluate paths in the vscode context.
+                if [[ "${rel_path}" == "${path}" ]]; then
+                  continue
+                fi
+
+                ignored_by_any="false"
+                for ignore_file in "${ignore_files[@]}"; do
+                  ignore_file_abs="${GITHUB_WORKSPACE}/${ignore_file}"
+                  if printf '%s\n' "${rel_path}" | git -c core.excludesfile="${ignore_file_abs}" check-ignore --no-index --stdin >/dev/null; then
+                    ignored_by_any="true"
+                    ignored_vscode_records+=("${path} <= ${ignore_file}")
+                    break
+                  fi
+                done
+
+                if [[ "${ignored_by_any}" != "true" ]]; then
+                  effective_vscode_files+=("${path}")
+                fi
+              done
+            fi
+
+            if [[ ${#effective_vscode_files[@]} -gt 0 ]]; then
+              changed="true"
+            fi
           fi
 
+          # Preserve the legacy output key used by downstream jobs.
           echo "containerfile_changed=${changed}" >>"$GITHUB_OUTPUT"
 
           {
-            echo "### Container Image Build Decision"
+            echo "### Container Image Rebuild Decision"
             echo
             echo "- Base source: \`${base_label:-<none>}\`"
             echo "- Base SHA: \`${base_sha:-<none>}\`"
             echo "- Head SHA: \`${head_sha:-<none>}\`"
-            echo "- \`vscode/Containerfile\` changed: \`${changed}\`"
+            if [[ ${#ignore_files[@]} -gt 0 ]]; then
+              echo "- Ignore files used:"
+              for ignore_file in "${ignore_files[@]}"; do
+                echo "  - \`${ignore_file}\`"
+              done
+            else
+              echo "- Ignore files used: \`<none>\`"
+            fi
+            if [[ ${#changed_vscode_files[@]} -gt 0 ]]; then
+              echo "- Changed files in \`vscode/\`:"
+              for path in "${changed_vscode_files[@]}"; do
+                echo "  - \`${path}\`"
+              done
+            else
+              echo "- Changed files in \`vscode/\`: \`<none>\`"
+            fi
+            if [[ ${#ignored_vscode_records[@]} -gt 0 ]]; then
+              echo "- Ignored by context ignore rules:"
+              for rec in "${ignored_vscode_records[@]}"; do
+                echo "  - \`${rec}\`"
+              done
+            else
+              echo "- Ignored by context ignore rules: \`<none>\`"
+            fi
+            if [[ ${#effective_vscode_files[@]} -gt 0 ]]; then
+              echo "- Effective context changes (trigger rebuild):"
+              for path in "${effective_vscode_files[@]}"; do
+                echo "  - \`${path}\`"
+              done
+            else
+              echo "- Effective context changes (trigger rebuild): \`<none>\`"
+            fi
+            echo "- Rebuild required: \`${changed}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Set build variables

@@ -35,6 +35,7 @@ if ! is_writable_dir_for_gpubox "${EFFECTIVE_TMPDIR}"; then
     EFFECTIVE_TMPDIR="${FALLBACK_TMPDIR}"
   fi
 fi
+# Mirror all common temp env vars so child tools consistently use the same writable temp dir.
 export TMPDIR="${EFFECTIVE_TMPDIR}"
 export TMP="${EFFECTIVE_TMPDIR}"
 export TEMP="${EFFECTIVE_TMPDIR}"
