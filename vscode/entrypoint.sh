@@ -5,6 +5,9 @@ MNT_HOME="${HOME:-/home/gpubox}"
 TUNNEL_NAME="${TUNNEL_NAME:-gpubox}"
 WORKDIR="${WORKDIR:-/home/gpubox/workspace}"
 FALLBACK_TMPDIR="${MNT_HOME}/.tmp"
+CONDA_HOME="${MNT_HOME}/.conda"
+CONDA_ENVS_DIR="${CONDA_HOME}/envs"
+CONDA_PKGS_DIR="${CONDA_HOME}/pkgs"
 
 is_writable_dir_for_gpubox() {
   local dir="$1"
@@ -16,11 +19,13 @@ mkdir -p "${WORKDIR}" \
          "${MNT_HOME}/.cache" \
          "${MNT_HOME}/.config" \
          "${MNT_HOME}/.local/share" \
+         "${CONDA_ENVS_DIR}" \
+         "${CONDA_PKGS_DIR}" \
          "${FALLBACK_TMPDIR}"
 
 # Avoid recursive chown (don’t punish yourself if home is huge).
 chown gpubox:gpubox "${MNT_HOME}" || true
-chown -R gpubox:gpubox "${MNT_HOME}/.config" "${MNT_HOME}/.local" "${MNT_HOME}/.cache" "${WORKDIR}" "${FALLBACK_TMPDIR}" || true
+chown -R gpubox:gpubox "${MNT_HOME}/.config" "${MNT_HOME}/.local" "${MNT_HOME}/.cache" "${CONDA_HOME}" "${WORKDIR}" "${FALLBACK_TMPDIR}" || true
 
 # PVC-backed /tmp mounts are commonly created without 01777 semantics.
 # VS Code needs a writable temp dir to create singleton sockets.
@@ -39,6 +44,9 @@ fi
 export TMPDIR="${EFFECTIVE_TMPDIR}"
 export TMP="${EFFECTIVE_TMPDIR}"
 export TEMP="${EFFECTIVE_TMPDIR}"
+export CONDA_ENVS_PATH="${CONDA_ENVS_DIR}"
+export CONDA_PKGS_DIRS="${CONDA_PKGS_DIR}"
+export MAMBA_ROOT_PREFIX="${CONDA_HOME}"
 
 # `code tunnel` no longer accepts a workspace positional argument.
 # Run from WORKDIR so the tunnel starts in the expected folder.
