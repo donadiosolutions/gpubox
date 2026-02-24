@@ -159,6 +159,8 @@ RUN curl -fsSL \
   && bash /tmp/miniforge.sh -b -p /opt/conda \
   && rm -f /tmp/miniforge.sh \
   && /opt/conda/bin/conda config --system --set auto_update_conda false \
+  && /opt/conda/bin/conda config --system --prepend envs_dirs /home/gpubox/.conda/envs \
+  && /opt/conda/bin/conda config --system --prepend pkgs_dirs /home/gpubox/.conda/pkgs \
   && /opt/conda/bin/conda clean -afy \
   && curl -fsSL \
       "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
@@ -168,7 +170,8 @@ RUN curl -fsSL \
   && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv \
   && install -m 0755 /tmp/uv-x86_64-unknown-linux-gnu/uvx /usr/local/bin/uvx \
   && rm -rf /tmp/uv.tgz /tmp/uv-x86_64-unknown-linux-gnu \
-  && chown -R gpubox:gpubox /opt/conda
+  && chown -R root:root /opt/conda \
+  && chmod -R go-w /opt/conda
 
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
@@ -186,6 +189,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 ENV HOME=/home/gpubox \
     USER=gpubox \
     CONDA_DIR=/opt/conda \
+    CONDA_ENVS_PATH=/home/gpubox/.conda/envs \
+    CONDA_PKGS_DIRS=/home/gpubox/.conda/pkgs \
+    MAMBA_ROOT_PREFIX=/home/gpubox/.conda \
     PATH=/opt/conda/bin:/home/gpubox/.cargo/bin:${PATH}
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
