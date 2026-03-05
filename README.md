@@ -23,9 +23,20 @@ This repository contains two main pieces:
   extensions, caches, and repos survive restarts.
 - **Optional transfer volume**: a second PVC (often RWX) mounted at `/transfer`
   for moving datasets/models in/out.
-- **VS Code tunnel workflow**: the default container entrypoint runs `code
-  tunnel ...` so you can attach from your local VS Code without exposing inbound
-  ports.
+- **VS Code tunnel + SSH workflow**: the default container entrypoint starts
+  `sshd` (with persisted host keys under the home volume and a startup readiness
+  check) and runs `code tunnel ...` so you can attach from local VS Code and
+  still have standard SSH access on port `22`.
+- **Rootless Podman ready**: Podman is preinstalled with `uidmap`,
+  `fuse-overlayfs`, and `slirp4netns`, with system + per-user config for
+  rootless runtime directories and Podman defaults.
+- **Rootless Podman + CUDA ready**: when NVIDIA GPU Operator injects runtime
+  artifacts, startup syncs NVIDIA CDI specs (and OCI hook fallback), adjusts
+  rootless-compatible NVIDIA runtime cgroup behavior (when config is present),
+  and grants `gpubox` access to GPU device groups.
+- **On-demand kernel package install**: run `instkheaders` inside the container
+  to install kernel-version-matched `linux-headers`/`linux-tools` packages for
+  the current `uname -r` only when needed.
 - **GPU scheduling**: configure `resources.limits.nvidia.com/gpu` and node
   selection to land on GPU nodes.
 
@@ -118,6 +129,16 @@ resources:
 
 nodeSelector:
   nvidia.com/gpu.present: "true"
+```
+
+### Rootless Podman CUDA (nested containers)
+
+With NVIDIA GPU Operator/runtime injection enabled on the node, nested rootless
+Podman containers can use GPUs via CDI:
+
+```bash
+podman run --rm --device nvidia.com/gpu=all \
+  docker.io/nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
 ```
 
 ## Contributing

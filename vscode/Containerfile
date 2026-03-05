@@ -69,14 +69,19 @@ LABEL org.opencontainers.image.title="${OCI_TITLE}" \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash-completion \
+      bpfcc-tools \
+      bpftrace \
       bzip2 \
+      btop \
       build-essential \
       ca-certificates \
       cargo \
+      clang \
       cmake \
       curl \
       dnsutils \
       gdb \
+      gh \
       git \
       gosu \
       htop \
@@ -85,28 +90,38 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       iputils-ping \
       less \
       libbz2-dev \
+      libbpf-dev \
+      libelf-dev \
       libffi-dev \
       liblzma-dev \
       libncursesw5-dev \
       libreadline-dev \
       libsqlite3-dev \
       libssl-dev \
+      llvm \
       lsof \
       mtr \
       openssh-client \
       openssh-server \
+      podman \
+      pahole \
+      pcaputils \
       pkg-config \
+      slirp4netns \
       python3 \
       python3-pip \
       pipx \
       python3-venv \
       rsync \
+      fuse-overlayfs \
       strace \
       sudo \
       tk-dev \
       tree \
       tini \
+      tshark \
       tmux \
+      uidmap \
       vim \
       xz-utils \
       zlib1g-dev \
@@ -126,6 +141,20 @@ RUN set -eux; \
   fi; \
   echo "gpubox ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/gpubox; \
   chmod 0440 /etc/sudoers.d/gpubox
+
+RUN set -eux; \
+  touch /etc/subuid /etc/subgid; \
+  if ! grep -q '^gpubox:' /etc/subuid; then echo 'gpubox:100000:65536' >> /etc/subuid; fi; \
+  if ! grep -q '^gpubox:' /etc/subgid; then echo 'gpubox:100000:65536' >> /etc/subgid; fi
+
+RUN mkdir -p /etc/containers/containers.conf.d \
+  && cat >/etc/containers/containers.conf.d/90-gpubox-rootless-nvidia.conf <<'EOF'
+[engine]
+cdi_spec_dirs = ["/var/run/cdi", "/etc/cdi"]
+
+[containers]
+annotations = ["run.oci.keep_original_groups=1"]
+EOF
 
 RUN mkdir -p /home/gpubox/workspace \
   && mkdir -p /home/gpubox/.ssh \
@@ -184,7 +213,8 @@ RUN curl -fsSL \
   && command -v npx
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY instkheaders.sh /usr/local/bin/instkheaders
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/instkheaders
 
 ENV HOME=/home/gpubox \
     USER=gpubox \
