@@ -137,7 +137,8 @@ With NVIDIA GPU Operator/runtime injection enabled on the node, nested rootless
 Podman containers can use GPUs via CDI:
 
 ```bash
-podman run --rm --device nvidia.com/gpu=all docker.io/nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
+podman run --rm --device nvidia.com/gpu=all \
+  docker.io/nvidia/cuda:12.9.0-base-ubuntu24.04 nvidia-smi
 ```
 
 ## Contributing
