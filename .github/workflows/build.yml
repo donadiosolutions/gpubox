@@ -177,7 +177,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -185,7 +185,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -399,13 +399,13 @@ jobs:
 
       - name: Attest chart package provenance (SLSA v1)
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
 
       - name: Attest chart package SBOM (SPDX 2.3)
         if: github.event_name != 'pull_request'
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        uses: actions/attest-sbom@07e74fc4e78d1aad915e867f9a094073a9f71527 # v4
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
           sbom-path: dist/gpubox-chart.sbom.spdx.json
@@ -429,7 +429,7 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Upload chart artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: helm-chart
           if-no-files-found: error
