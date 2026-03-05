@@ -33,7 +33,9 @@ This repository contains two main pieces:
 - **Rootless Podman + CUDA ready**: when NVIDIA GPU Operator injects runtime
   artifacts, startup syncs NVIDIA CDI specs (and OCI hook fallback), adjusts
   rootless-compatible NVIDIA runtime cgroup behavior (when config is present),
-  and grants `gpubox` access to GPU device groups.
+  and grants `gpubox` access to GPU device groups. The image also includes
+  `nvidia-container-toolkit`, providing the `nvidia-ctk` CLI for local CDI
+  generation.
 - **On-demand kernel package install**: run `instkheaders` inside the container
   to install kernel-version-matched `linux-headers`/`linux-tools` packages for
   the current `uname -r` only when needed.
