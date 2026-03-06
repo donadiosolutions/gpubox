@@ -18,6 +18,18 @@ is_writable_dir_for_gpubox() {
   gosu gpubox:gpubox test -d "${dir}" && gosu gpubox:gpubox test -w "${dir}"
 }
 
+copy_file_if_distinct() {
+  local src="$1"
+  local dest="$2"
+
+  # Bind mounts can expose the same host file at different paths; skip those copies.
+  if [[ "${src}" == "${dest}" ]] || [[ -e "${dest}" && "${src}" -ef "${dest}" ]]; then
+    return 0
+  fi
+
+  cp -f "${src}" "${dest}"
+}
+
 ensure_podman_rootless_runtime() {
   local gpubox_uid=""
   local gpubox_gid=""
@@ -133,9 +145,7 @@ ensure_podman_cuda_support() {
         continue
       fi
       dest="${cdi_runtime_dir}/$(basename "${spec}")"
-      if [[ "${spec}" != "${dest}" ]]; then
-        cp -f "${spec}" "${dest}"
-      fi
+      copy_file_if_distinct "${spec}" "${dest}"
       chmod 0644 "${dest}" || true
       found_nvidia_cdi_spec=1
     done
@@ -149,9 +159,7 @@ ensure_podman_cuda_support() {
     /host/etc/containers/oci/hooks.d/oci-nvidia-hook.json \
     /host/usr/share/containers/oci/hooks.d/oci-nvidia-hook.json; do
     [[ -f "${hook_candidate}" ]] || continue
-    if [[ "${hook_candidate}" != "${hook_dest}" ]]; then
-      cp -f "${hook_candidate}" "${hook_dest}"
-    fi
+    copy_file_if_distinct "${hook_candidate}" "${hook_dest}"
     chmod 0644 "${hook_dest}" || true
     found_nvidia_hook=1
     break
