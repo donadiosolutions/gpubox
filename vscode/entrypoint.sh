@@ -12,6 +12,11 @@ SSH_HOSTKEY_DIR="${SSH_HOSTKEY_DIR:-${MNT_HOME}/.gpubox/ssh-hostkeys}"
 SSHD_READINESS_PORT="${SSHD_READINESS_PORT:-22}"
 SSHD_READINESS_TIMEOUT_SECONDS="${SSHD_READINESS_TIMEOUT_SECONDS:-10}"
 PODMAN_GRAPHROOT="${PODMAN_GRAPHROOT:-${MNT_HOME}/.local/share/containers/storage}"
+DEFAULT_PATH="/opt/conda/bin:/home/gpubox/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [[ -z "${PATH:-}" ]]; then
+  export PATH="${DEFAULT_PATH}"
+fi
 
 is_writable_dir_for_gpubox() {
   local dir="$1"
@@ -283,4 +288,4 @@ wait_for_sshd_ready
 # Run from WORKDIR so the tunnel starts in the expected folder.
 cd "${WORKDIR}"
 exec gosu gpubox:gpubox \
-  code tunnel --name "${TUNNEL_NAME}" --accept-server-license-terms
+  code tunnel --name "${TUNNEL_NAME}" --accept-server-license-terms --verbose
