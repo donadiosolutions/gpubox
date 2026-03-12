@@ -15,6 +15,8 @@ ARG MINIFORGE_VERSION=26.1.0-0
 ARG MINIFORGE_SHA256=127b5e14cfe6c83b787f624487cdc2168645ed82fdca1b0c1937caa086aed6d5
 ARG UV_VERSION=0.10.9
 ARG UV_SHA256=20d79708222611fa540b5c9ed84f352bcd3937740e51aacc0f8b15b271c57594
+ARG SCCACHE_VERSION=0.12.0
+ARG SCCACHE_SHA256=b0e89ead6899224a4ba2b90e9073bf1ce036d95bab30f3dc33c1e1468bc4ad44
 
 # OCI image metadata labels.
 #
@@ -217,6 +219,17 @@ RUN curl -fsSL \
   && rm -rf /tmp/uv.tgz /tmp/uv-x86_64-unknown-linux-gnu \
   && chown -R root:root /opt/conda \
   && chmod -R go-w /opt/conda
+
+# The upstream musl build is shipped as a static PIE binary, so it does not
+# require Ubuntu musl runtime packages in the image.
+RUN curl -fsSL \
+      "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+      -o /tmp/sccache.tgz \
+  && echo "${SCCACHE_SHA256}  /tmp/sccache.tgz" | sha256sum -c - \
+  && tar -xzf /tmp/sccache.tgz -C /tmp \
+  && install -m 0755 /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/bin/sccache \
+  && ldd /usr/local/bin/sccache | grep -Eq 'statically linked|not a dynamic executable' \
+  && rm -rf /tmp/sccache.tgz /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl
 
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
