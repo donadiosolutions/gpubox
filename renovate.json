@@ -183,9 +183,32 @@
       "groupName": "Container base images"
     },
     {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ubuntu"],
+      "sourceUrl": "https://ubuntu.com/",
+      "changelogUrl": "https://wiki.ubuntu.com/Releases"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["busybox"],
+      "sourceUrl": "https://busybox.net/",
+      "changelogUrl": "https://busybox.net/news.html"
+    },
+    {
       "matchDatasources": ["custom.vscodeCliStable", "custom.vscodeCliStableWithShaBlock"],
       "matchPackageNames": ["vscode-cli"],
-      "groupName": "VS Code CLI"
+      "groupName": "VS Code CLI",
+      "changelogUrl": "https://code.visualstudio.com/updates/v{{{replace \"\\\\.\" \"_\" (replace \"\\\\.[0-9]+$\" \"\" (replace \"@.*\" \"\" newVersion))}}}"
+    },
+    {
+      "matchDatasources": ["custom.goLinuxAmd64WithShaBlock"],
+      "matchDepNames": ["golang"],
+      "changelogUrl": "https://go.dev/doc/devel/release#go{{{replace \"@.*\" \"\" newVersion}}}"
+    },
+    {
+      "matchDatasources": ["custom.nodeLtsLinuxX64WithShaBlock"],
+      "matchDepNames": ["nodejs-lts"],
+      "changelogUrl": "https://nodejs.org/en/download/archive/v{{{replace \"@.*\" \"\" newVersion}}}"
     },
     {
       "matchDatasources": [
@@ -195,6 +218,14 @@
       ],
       "matchDepNames": ["golang", "nodejs-lts", "miniforge", "uv", "sccache"],
       "groupName": "Container toolchains"
+    },
+    {
+      "matchDatasources": ["github-release-attachments", "github-releases"],
+      "changelogUrl": "{{{sourceUrl}}}/releases/tag/{{{newVersion}}}"
+    },
+    {
+      "matchDatasources": ["github-tags"],
+      "changelogUrl": "{{#if newDigest}}{{{sourceUrl}}}/compare/{{{currentDigest}}}...{{{newDigest}}}{{else}}{{{sourceUrl}}}/compare/{{{currentVersion}}}...{{{newVersion}}}{{/if}}"
     },
     {
       "matchDatasources": ["docker"],
