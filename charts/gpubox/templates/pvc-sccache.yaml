@@ -1,0 +1,25 @@
+{{- if and .Values.sccache.enabled .Values.sccache.persistence.enabled (not .Values.sccache.persistence.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "gpubox.sccacheClaimName" . }}
+  labels:
+    {{- include "gpubox.labels" . | nindent 4 }}
+    {{- with .Values.sccache.persistence.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.sccache.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.sccache.persistence.accessModes | nindent 4 }}
+  volumeMode: {{ .Values.sccache.persistence.volumeMode }}
+  {{- if .Values.sccache.persistence.storageClass }}
+  storageClassName: {{ .Values.sccache.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.sccache.persistence.size | quote }}
+{{- end }}

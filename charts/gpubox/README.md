@@ -24,6 +24,7 @@ helm upgrade --install gpubox ./charts/gpubox \
 - `resources.limits.nvidia.com/gpu` controls GPU allocation.
 - `image.digest` can pin an immutable container digest (`sha256:...`) while still setting `image.tag`.
 - `persistence.home`, `persistence.transfer`, and `persistence.tmp` configure PVC sizes and storage classes.
+- `sccache.enabled=true` adds a foreground `sccache` sidecar, injects default client env vars into the main container, and provisions a dedicated 300Gi `block` PVC for cache storage.
 - `ssh.authorizedKeys` injects `authorized_keys` into the mounted home volume via an initContainer.
 - `tolerations`, `affinity`, `nodeSelector` allow pinning to GPU nodes.
 - `extraResources` appends additional Kubernetes manifests to the release.

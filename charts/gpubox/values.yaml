@@ -64,6 +64,29 @@ extraEnv: []
 
 envFrom: []
 
+sccache:
+  enabled: true
+  injectClientEnv: true
+  wrapperPath: /usr/local/bin/sccache
+  port: 4226
+  logLevel: debug
+  idleTimeoutSeconds: 0
+  cacheSize: 280G
+  resources: {}
+  extraEnv: []
+  persistence:
+    enabled: true
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+    storageClass: block
+    accessModes:
+      - ReadWriteOnce
+    volumeMode: Filesystem
+    size: 300Gi
+    mountPath: /var/cache/sccache
+    readOnly: false
+
 container:
   stdin: true
   tty: true
