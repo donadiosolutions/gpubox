@@ -19,13 +19,13 @@ repos:
         exclude: ^charts/[^/]+/templates/
 
   - repo: https://github.com/jackdewinter/pymarkdown
-    rev: v0.9.35
+    rev: v0.9.36
     hooks:
       - id: pymarkdown
         args: ["--config", ".pymarkdown.json", "--strict-config", "scan"]
 
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.0
+    rev: v8.30.1
     hooks:
       - id: gitleaks-system
         pass_filenames: false
