@@ -133,7 +133,7 @@ jobs:
         id: codex_highlights
         if: steps.resolve_openai_key.outputs.has_key == 'true'
         continue-on-error: true
-        uses: openai/codex-action@086169432f1d2ab2f4057540b1754d550f6a1189 # v1.4
+        uses: openai/codex-action@c25d10f3f498316d4b2496cc4c6dd58057a7b031 # v1.6
         with:
           openai-api-key: ${{ env.OPENAI_API_KEY_RESOLVED }}
           prompt-file: codex-highlights.prompt.txt
@@ -207,7 +207,7 @@ jobs:
           python3 scripts/release/render_release_body.py "${render_args[@]}"
 
       - name: Create GitHub Release
-        uses: ncipollo/release-action@b7eabc95ff50cbeeedec83973935c8f306dfcd0b # v1.20.0
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
           tag: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
