@@ -173,7 +173,7 @@ jobs:
 
       - name: Setup Blacksmith Builder
         if: steps.changes.outputs.containerfile_changed == 'true'
-        uses: useblacksmith/setup-docker-builder@44c43c0599d417cb00afb09a18ee099347a34b70 # v1
+        uses: useblacksmith/setup-docker-builder@5241b2e9423e8b1fa37ed6050ecb62d0fb9a4e38 # v1
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
