@@ -85,6 +85,21 @@ ensure_file_owned() {
   chown "${owner}:${group}" "${path}" || true
 }
 
+ensure_bwrap_setuid() {
+  if [[ ! -x /usr/bin/bwrap ]]; then
+    echo "ERROR: /usr/bin/bwrap is missing." >&2
+    return 1
+  fi
+
+  chown root:root /usr/bin/bwrap
+  chmod 4755 /usr/bin/bwrap
+
+  if [[ ! -u /usr/bin/bwrap ]]; then
+    echo "ERROR: /usr/bin/bwrap is not setuid after initialization." >&2
+    return 1
+  fi
+}
+
 append_managed_block_if_missing() {
   local path="$1"
   local marker="$2"
@@ -622,6 +637,7 @@ mkdir -p "${WORKDIR}" \
          "${CONDA_PKGS_DIR}" \
          "${FALLBACK_TMPDIR}"
 
+ensure_bwrap_setuid
 ensure_shell_init_for_home /etc/skel root root
 ensure_shell_init_for_home /root root root
 ensure_shell_init_for_home "${MNT_HOME}" gpubox gpubox

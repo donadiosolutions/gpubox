@@ -75,6 +75,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       bpftrace \
       bzip2 \
       btop \
+      bubblewrap \
       build-essential \
       ca-certificates \
       cargo \
@@ -131,6 +132,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       vim \
       xz-utils \
       zlib1g-dev \
+  && chown root:root /usr/bin/bwrap \
+  && chmod 4755 /usr/bin/bwrap \
   && rm -rf /var/lib/apt/lists/*
 
 # Install NVIDIA Container Toolkit so startup can generate CDI specs with nvidia-ctk.
