@@ -43,6 +43,13 @@
       "transformTemplates": [
         "( $line := $$.releases[$contains(version, \"-linux-x64.tar.xz\")][0].version; $parts := $split($line, \"  \"); $filenameParts := $split($parts[1], \"-\"); { \"releases\": [{ \"version\": $substring($filenameParts[1], 1) & \"@\" & $parts[0] }], \"sourceUrl\": \"https://nodejs.org/download/release/\" } )"
       ]
+    },
+    "s5cmdLinuxX64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://github.com/peak/s5cmd/releases/latest/download/s5cmd_checksums.txt",
+      "format": "plain",
+      "transformTemplates": [
+        "( $line := $$.releases[$contains(version, \"_Linux-64bit.tar.gz\")][0].version; $parts := $split($line, \"  \"); $filename := $parts[1]; $filenameParts := $split($filename, \"_\"); { \"releases\": [{ \"version\": $filenameParts[1] & \"@\" & $parts[0] }], \"sourceUrl\": \"https://github.com/peak/s5cmd/releases\" } )"
+      ]
     }
   },
   "customManagers": [
@@ -141,6 +148,19 @@
     },
     {
       "customType": "regex",
+      "description": "s5cmd version + sha256 (Linux 64-bit tarball)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG S5CMD_VERSION=(?<currentVersion>\\S+)\\nARG S5CMD_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
+      "datasourceTemplate": "custom.s5cmdLinuxX64WithShaBlock",
+      "depNameTemplate": "s5cmd",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG S5CMD_VERSION={{{replace \"@.*\" \"\" newValue}}}\nARG S5CMD_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
       "description": "Helm CLI version used by azure/setup-helm",
       "managerFilePatterns": ["/^\\.github\\/workflows\\/build\\.yml$/"],
       "matchStrings": ["version:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"],
@@ -212,13 +232,19 @@
       "changelogUrl": "https://nodejs.org/en/download/archive/v{{{replace \"@.*\" \"\" newVersion}}}"
     },
     {
+      "matchDatasources": ["custom.s5cmdLinuxX64WithShaBlock"],
+      "matchDepNames": ["s5cmd"],
+      "changelogUrl": "https://github.com/peak/s5cmd/releases/tag/v{{{replace \"@.*\" \"\" newVersion}}}"
+    },
+    {
       "matchDatasources": [
         "custom.goLinuxAmd64WithShaBlock",
         "custom.nodeLtsLinuxX64WithShaBlock",
+        "custom.s5cmdLinuxX64WithShaBlock",
         "github-release-attachments",
         "github-tags"
       ],
-      "matchDepNames": ["golang", "nodejs-lts", "miniforge", "uv", "pyenv", "nvm"],
+      "matchDepNames": ["golang", "nodejs-lts", "s5cmd", "miniforge", "uv", "pyenv", "nvm"],
       "groupName": "Container toolchains"
     },
     {
