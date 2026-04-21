@@ -8,6 +8,12 @@ FALLBACK_TMPDIR="${MNT_HOME}/.tmp"
 CONDA_HOME="${MNT_HOME}/.conda"
 CONDA_ENVS_DIR="${CONDA_HOME}/envs"
 CONDA_PKGS_DIR="${CONDA_HOME}/pkgs"
+NPM_PACKAGES_HOME="${MNT_HOME}/.npm-packages"
+PYENV_HOME="${MNT_HOME}/.pyenv"
+NVM_HOME="${MNT_HOME}/.nvm"
+PYENV_SEED_DIR="/usr/local/share/gpubox-seeds/pyenv"
+NVM_SEED_DIR="/usr/local/share/gpubox-seeds/nvm"
+PATH_SCRIPT_SOURCE_DIR="/usr/local/share/gpubox-shell-init"
 SSH_HOSTKEY_DIR="${SSH_HOSTKEY_DIR:-${MNT_HOME}/.gpubox/ssh-hostkeys}"
 SSHD_READINESS_PORT="${SSHD_READINESS_PORT:-22}"
 SSHD_READINESS_TIMEOUT_SECONDS="${SSHD_READINESS_TIMEOUT_SECONDS:-10}"
@@ -95,11 +101,142 @@ append_managed_block_if_missing() {
   printf '%s\n' "${content}" >>"${path}"
 }
 
+ensure_managed_file_content() {
+  local path="$1"
+  local owner="$2"
+  local group="$3"
+  local mode="$4"
+  local content="$5"
+
+  ensure_file_owned "${path}" "${owner}" "${group}" "${mode}"
+
+  if ! cmp -s <(printf '%s\n' "${content}") "${path}"; then
+    printf '%s\n' "${content}" >"${path}"
+  fi
+
+  chown "${owner}:${group}" "${path}" || true
+  chmod "${mode}" "${path}" || true
+}
+
+ensure_seeded_dir_if_missing() {
+  local seed_dir="$1"
+  local dest_dir="$2"
+  local owner="$3"
+  local group="$4"
+
+  if [[ ! -d "${seed_dir}" ]]; then
+    echo "ERROR: Required seed directory ${seed_dir} is missing." >&2
+    return 1
+  fi
+
+  if [[ -e "${dest_dir}" && ! -d "${dest_dir}" ]]; then
+    echo "ERROR: ${dest_dir} exists but is not a directory." >&2
+    return 1
+  fi
+
+  if [[ ! -d "${dest_dir}" ]]; then
+    cp -a "${seed_dir}" "${dest_dir}"
+    chown -R "${owner}:${group}" "${dest_dir}" || true
+  fi
+}
+
 file_has_active_reference() {
   local path="$1"
   local pattern="$2"
 
   grep -Eq "^[[:space:]]*[^#[:space:]].*${pattern}" "${path}" 2>/dev/null
+}
+
+strip_ubuntu_profile_path_defaults() {
+  local path="$1"
+  local temp_path=""
+
+  if [[ ! -f "${path}" ]]; then
+    return 0
+  fi
+
+  temp_path="$(mktemp)"
+  awk '
+    BEGIN {
+      profile_path_comment = "# set PATH so it includes user'\''s private bin if it exists"
+      home_bin_if = "if [ -d \"$HOME/bin\" ] ; then"
+      home_bin_path = "    PATH=\"$HOME/bin:$PATH\""
+      local_bin_if = "if [ -d \"$HOME/.local/bin\" ] ; then"
+      local_bin_path = "    PATH=\"$HOME/.local/bin:$PATH\""
+    }
+    { lines[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        if (lines[i] == profile_path_comment &&
+            lines[i + 1] == home_bin_if &&
+            lines[i + 2] == home_bin_path &&
+            lines[i + 3] == "fi") {
+          i += 3
+          continue
+        }
+
+        if (lines[i] == profile_path_comment &&
+            lines[i + 1] == local_bin_if &&
+            lines[i + 2] == local_bin_path &&
+            lines[i + 3] == "fi") {
+          i += 3
+          continue
+        }
+
+        print lines[i]
+      }
+    }
+  ' "${path}" >"${temp_path}"
+
+  if ! cmp -s "${path}" "${temp_path}"; then
+    mv "${temp_path}" "${path}"
+  else
+    rm -f "${temp_path}"
+  fi
+}
+
+install_numbered_path_scripts_for_home() {
+  local home_dir="$1"
+  local owner="$2"
+  local group="$3"
+  local src=""
+  local dest=""
+  local target_dir=""
+
+  if [[ ! -d "${PATH_SCRIPT_SOURCE_DIR}" ]]; then
+    echo "ERROR: Required PATH script directory ${PATH_SCRIPT_SOURCE_DIR} is missing." >&2
+    return 1
+  fi
+
+  shopt -s nullglob
+  for src in "${PATH_SCRIPT_SOURCE_DIR}"/[0-9][0-9]-*.sh; do
+    [[ -r "${src}" ]] || continue
+
+    for target_dir in "${home_dir}/.bashrc.d" "${home_dir}/.profile.d"; do
+      dest="${target_dir}/$(basename "${src}")"
+      copy_file_if_distinct "${src}" "${dest}"
+      chown "${owner}:${group}" "${dest}" || true
+      chmod 0755 "${dest}" || true
+    done
+  done
+  shopt -u nullglob
+}
+
+source_numbered_path_scripts() {
+  local script_dir="$1"
+  local script=""
+
+  if [[ ! -d "${script_dir}" ]]; then
+    echo "ERROR: Required PATH script directory ${script_dir} is missing." >&2
+    return 1
+  fi
+
+  shopt -s nullglob
+  for script in "${script_dir}"/[0-9][0-9]-*.sh; do
+    [[ -r "${script}" ]] || continue
+    . "${script}"
+  done
+  shopt -u nullglob
 }
 
 ensure_shell_init_for_home() {
@@ -129,6 +266,7 @@ ensure_shell_init_for_home() {
   ensure_file_owned "${profile_path}" "${owner}" "${group}" 0644 "${profile_template}"
   ensure_file_owned "${profile_creds_path}" "${owner}" "${group}" 0700
   chmod 0700 "${profile_creds_path}" || true
+  strip_ubuntu_profile_path_defaults "${profile_path}"
 
   read -r -d '' bashrc_block <<'EOF' || true
 # >>> gpubox-managed shell init: ~/.bashrc.d >>>
@@ -175,6 +313,99 @@ EOF
   if ! file_has_active_reference "${profile_path}" '\.profilecreds'; then
     append_managed_block_if_missing "${profile_path}" "# >>> gpubox-managed shell init: ~/.profilecreds >>>" "${profile_creds_block}"
   fi
+
+  chown "${owner}:${group}" "${bashrc_path}" "${profile_path}" || true
+  chmod 0644 "${bashrc_path}" "${profile_path}" || true
+}
+
+ensure_npm_global_prefix_for_home() {
+  local home_dir="$1"
+  local owner="$2"
+  local group="$3"
+  local npm_home="${home_dir}/.npm-packages"
+  local npm_bin="${npm_home}/bin"
+  local bashrc_snippet_path="${home_dir}/.bashrc.d/20-gpubox-managed-npm-prefix.sh"
+  local profile_snippet_path="${home_dir}/.profile.d/20-gpubox-managed-npm-prefix.sh"
+  local npm_shell_snippet=""
+
+  ensure_dir_owned "${npm_home}" "${owner}" "${group}"
+  ensure_dir_owned "${npm_bin}" "${owner}" "${group}"
+
+  read -r -d '' npm_shell_snippet <<'EOF' || true
+export NPM_CONFIG_PREFIX="${HOME}/.npm-packages"
+export npm_config_prefix="${NPM_CONFIG_PREFIX}"
+EOF
+
+  ensure_managed_file_content "${bashrc_snippet_path}" "${owner}" "${group}" 0644 "${npm_shell_snippet}"
+  ensure_managed_file_content "${profile_snippet_path}" "${owner}" "${group}" 0644 "${npm_shell_snippet}"
+}
+
+ensure_pyenv_for_home() {
+  local home_dir="$1"
+  local owner="$2"
+  local group="$3"
+  local pyenv_home="${home_dir}/.pyenv"
+  local bashrc_snippet_path="${home_dir}/.bashrc.d/30-gpubox-managed-pyenv.sh"
+  local profile_snippet_path="${home_dir}/.profile.d/30-gpubox-managed-pyenv.sh"
+  local bashrc_snippet=""
+  local profile_snippet=""
+
+  ensure_seeded_dir_if_missing "${PYENV_SEED_DIR}" "${pyenv_home}" "${owner}" "${group}"
+
+  read -r -d '' profile_snippet <<'EOF' || true
+export PYENV_ROOT="${HOME}/.pyenv"
+
+if command -v pyenv >/dev/null 2>&1; then
+  eval "$(pyenv init --path)"
+fi
+EOF
+
+  read -r -d '' bashrc_snippet <<'EOF' || true
+export PYENV_ROOT="${HOME}/.pyenv"
+
+if command -v pyenv >/dev/null 2>&1; then
+  eval "$(pyenv init - bash)"
+fi
+EOF
+
+  ensure_managed_file_content "${profile_snippet_path}" "${owner}" "${group}" 0644 "${profile_snippet}"
+  ensure_managed_file_content "${bashrc_snippet_path}" "${owner}" "${group}" 0644 "${bashrc_snippet}"
+}
+
+ensure_nvm_for_home() {
+  local home_dir="$1"
+  local owner="$2"
+  local group="$3"
+  local nvm_home="${home_dir}/.nvm"
+  local bashrc_snippet_path="${home_dir}/.bashrc.d/40-gpubox-managed-nvm.sh"
+  local profile_snippet_path="${home_dir}/.profile.d/40-gpubox-managed-nvm.sh"
+  local bashrc_snippet=""
+  local profile_snippet=""
+
+  ensure_seeded_dir_if_missing "${NVM_SEED_DIR}" "${nvm_home}" "${owner}" "${group}"
+
+  read -r -d '' profile_snippet <<'EOF' || true
+export NVM_DIR="${HOME}/.nvm"
+
+if ! command -v nvm >/dev/null 2>&1 && [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+fi
+EOF
+
+  read -r -d '' bashrc_snippet <<'EOF' || true
+export NVM_DIR="${HOME}/.nvm"
+
+if ! command -v nvm >/dev/null 2>&1 && [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+fi
+
+if [ -s "$NVM_DIR/bash_completion" ]; then
+  . "$NVM_DIR/bash_completion"
+fi
+EOF
+
+  ensure_managed_file_content "${profile_snippet_path}" "${owner}" "${group}" 0644 "${profile_snippet}"
+  ensure_managed_file_content "${bashrc_snippet_path}" "${owner}" "${group}" 0644 "${bashrc_snippet}"
 }
 
 ensure_podman_rootless_runtime() {
@@ -394,6 +625,15 @@ mkdir -p "${WORKDIR}" \
 ensure_shell_init_for_home /etc/skel root root
 ensure_shell_init_for_home /root root root
 ensure_shell_init_for_home "${MNT_HOME}" gpubox gpubox
+install_numbered_path_scripts_for_home /etc/skel root root
+install_numbered_path_scripts_for_home /root root root
+install_numbered_path_scripts_for_home "${MNT_HOME}" gpubox gpubox
+ensure_npm_global_prefix_for_home /etc/skel root root
+ensure_npm_global_prefix_for_home "${MNT_HOME}" gpubox gpubox
+ensure_pyenv_for_home /etc/skel root root
+ensure_pyenv_for_home "${MNT_HOME}" gpubox gpubox
+ensure_nvm_for_home /etc/skel root root
+ensure_nvm_for_home "${MNT_HOME}" gpubox gpubox
 
 # Avoid recursive chown (don’t punish yourself if home is huge).
 chown gpubox:gpubox "${MNT_HOME}" || true
@@ -422,6 +662,11 @@ export TEMP="${EFFECTIVE_TMPDIR}"
 export CONDA_ENVS_PATH="${CONDA_ENVS_DIR}"
 export CONDA_PKGS_DIRS="${CONDA_PKGS_DIR}"
 export MAMBA_ROOT_PREFIX="${CONDA_HOME}"
+export NPM_CONFIG_PREFIX="${NPM_PACKAGES_HOME}"
+export npm_config_prefix="${NPM_CONFIG_PREFIX}"
+export PYENV_ROOT="${PYENV_HOME}"
+export NVM_DIR="${NVM_HOME}"
+source_numbered_path_scripts "${PATH_SCRIPT_SOURCE_DIR}"
 
 # Ensure OpenSSH runtime prerequisites are present, then start sshd.
 mkdir -p /run/sshd

@@ -73,16 +73,31 @@
     },
     {
       "customType": "regex",
-      "description": "Go version + sha256 (linux-amd64 tarball)",
+      "description": "pyenv tag + pinned commit digest",
       "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
       "matchStrings": [
-        "ARG GO_VERSION=(?<currentVersion>\\S+)\\nARG GO_SHA256=(?<currentHash>[a-f0-9]{64})"
+        "ARG PYENV_VERSION=(?<currentVersion>\\S+)\\nARG PYENV_DIGEST=(?<currentDigest>[a-f0-9]{40})"
       ],
-      "currentValueTemplate": "{{{currentVersion}}}@{{{currentHash}}}",
-      "datasourceTemplate": "custom.goLinuxAmd64WithShaBlock",
-      "depNameTemplate": "golang",
+      "currentValueTemplate": "v{{{currentVersion}}}",
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "pyenv",
+      "packageNameTemplate": "pyenv/pyenv",
       "versioningTemplate": "loose",
-      "autoReplaceStringTemplate": "ARG GO_VERSION={{{replace \"@.*\" \"\" newValue}}}\nARG GO_SHA256={{{replace \"^.*@\" \"\" newValue}}}"
+      "autoReplaceStringTemplate": "ARG PYENV_VERSION={{{replace \"^v\" \"\" newValue}}}\nARG PYENV_DIGEST={{{newDigest}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "nvm tag + pinned commit digest",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG NVM_VERSION=(?<currentVersion>\\S+)\\nARG NVM_DIGEST=(?<currentDigest>[a-f0-9]{40})"
+      ],
+      "currentValueTemplate": "v{{{currentVersion}}}",
+      "datasourceTemplate": "github-tags",
+      "depNameTemplate": "nvm",
+      "packageNameTemplate": "nvm-sh/nvm",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG NVM_VERSION={{{replace \"^v\" \"\" newValue}}}\nARG NVM_DIGEST={{{newDigest}}}"
     },
     {
       "customType": "regex",
@@ -200,9 +215,10 @@
       "matchDatasources": [
         "custom.goLinuxAmd64WithShaBlock",
         "custom.nodeLtsLinuxX64WithShaBlock",
-        "github-release-attachments"
+        "github-release-attachments",
+        "github-tags"
       ],
-      "matchDepNames": ["golang", "nodejs-lts", "miniforge", "uv"],
+      "matchDepNames": ["golang", "nodejs-lts", "miniforge", "uv", "pyenv", "nvm"],
       "groupName": "Container toolchains"
     },
     {
