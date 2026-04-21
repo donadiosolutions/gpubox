@@ -16,6 +16,3 @@ PVCs (if enabled):
   {{- if .Values.persistence.tmp.enabled }}
   - {{ include "gpubox.tmpClaimName" . }}
   {{- end }}
-  {{- if and .Values.sccache.enabled .Values.sccache.persistence.enabled }}
-  - {{ include "gpubox.sccacheClaimName" . }}
-  {{- end }}

@@ -114,14 +114,6 @@ PVC names.
 {{- end -}}
 {{- end -}}
 
-{{- define "gpubox.sccacheClaimName" -}}
-{{- if .Values.sccache.persistence.existingClaim -}}
-{{- .Values.sccache.persistence.existingClaim -}}
-{{- else -}}
-{{- printf "%s-sccache" (include "gpubox.fullname" .) -}}
-{{- end -}}
-{{- end -}}
-
 {{/*
 SSH authorized_keys ConfigMap name.
 */}}

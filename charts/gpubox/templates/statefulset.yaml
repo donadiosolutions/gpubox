@@ -1,5 +1,4 @@
 {{- $sshAuthorizedKeysEnabled := or (gt (len .Values.ssh.authorizedKeys) 0) .Values.ssh.existingAuthorizedKeysConfigMap -}}
-{{- $sccachePersistenceEnabled := and .Values.sccache.enabled .Values.sccache.persistence.enabled -}}
 {{- if and $sshAuthorizedKeysEnabled (not .Values.persistence.home.enabled) -}}
 {{- fail "ssh.authorizedKeys/existingAuthorizedKeysConfigMap requires persistence.home.enabled=true" -}}
 {{- end -}}
@@ -133,11 +132,6 @@ spec:
             path: {{ .Values.persistence.hostRoot.hostPath | quote }}
             type: {{ .Values.persistence.hostRoot.type }}
         {{- end }}
-        {{- if $sccachePersistenceEnabled }}
-        - name: sccache
-          persistentVolumeClaim:
-            claimName: {{ include "gpubox.sccacheClaimName" . }}
-        {{- end }}
         {{- if $sshAuthorizedKeysEnabled }}
         - name: ssh-authorized-keys
           configMap:
@@ -172,18 +166,6 @@ spec:
               value: {{ .Values.env.TUNNEL_NAME | quote }}
             - name: WORKDIR
               value: {{ .Values.env.WORKDIR | quote }}
-            {{- if and .Values.sccache.enabled .Values.sccache.injectClientEnv }}
-            - name: SCCACHE_SERVER_PORT
-              value: {{ .Values.sccache.port | quote }}
-            - name: RUSTC_WRAPPER
-              value: {{ .Values.sccache.wrapperPath | quote }}
-            - name: CMAKE_C_COMPILER_LAUNCHER
-              value: {{ .Values.sccache.wrapperPath | quote }}
-            - name: CMAKE_CXX_COMPILER_LAUNCHER
-              value: {{ .Values.sccache.wrapperPath | quote }}
-            - name: CMAKE_CUDA_COMPILER_LAUNCHER
-              value: {{ .Values.sccache.wrapperPath | quote }}
-            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -219,63 +201,6 @@ spec:
             {{- end }}
           stdin: {{ .Values.container.stdin }}
           tty: {{ .Values.container.tty }}
-        {{- if .Values.sccache.enabled }}
-        - name: sccache
-          image: "{{ include "gpubox.imageRef" . }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - {{ .Values.sccache.wrapperPath | quote }}
-          env:
-            - name: SCCACHE_START_SERVER
-              value: "1"
-            - name: SCCACHE_NO_DAEMON
-              value: "1"
-            - name: SCCACHE_SERVER_PORT
-              value: {{ .Values.sccache.port | quote }}
-            - name: SCCACHE_LOG
-              value: {{ .Values.sccache.logLevel | quote }}
-            - name: SCCACHE_IDLE_TIMEOUT
-              value: {{ .Values.sccache.idleTimeoutSeconds | quote }}
-            - name: SCCACHE_DIR
-              value: {{ .Values.sccache.persistence.mountPath | quote }}
-            {{- if .Values.sccache.cacheSize }}
-            - name: SCCACHE_CACHE_SIZE
-              value: {{ .Values.sccache.cacheSize | quote }}
-            {{- end }}
-            {{- with .Values.sccache.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          {{- with .Values.sccache.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          volumeMounts:
-            {{- if .Values.persistence.home.enabled }}
-            - name: home
-              mountPath: {{ .Values.persistence.home.mountPath | quote }}
-              readOnly: {{ .Values.persistence.home.readOnly }}
-            {{- end }}
-            {{- if .Values.persistence.transfer.enabled }}
-            - name: transfer
-              mountPath: {{ .Values.persistence.transfer.mountPath | quote }}
-              readOnly: {{ .Values.persistence.transfer.readOnly }}
-            {{- end }}
-            {{- if .Values.persistence.tmp.enabled }}
-            - name: tmp
-              mountPath: {{ .Values.persistence.tmp.mountPath | quote }}
-              readOnly: {{ .Values.persistence.tmp.readOnly }}
-            {{- end }}
-            {{- if .Values.persistence.hostRoot.enabled }}
-            - name: host-root
-              mountPath: {{ .Values.persistence.hostRoot.mountPath | quote }}
-              readOnly: {{ .Values.persistence.hostRoot.readOnly }}
-            {{- end }}
-            {{- if $sccachePersistenceEnabled }}
-            - name: sccache
-              mountPath: {{ .Values.sccache.persistence.mountPath | quote }}
-              readOnly: {{ .Values.sccache.persistence.readOnly }}
-            {{- end }}
-        {{- end }}
         {{- with .Values.sidecars }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
