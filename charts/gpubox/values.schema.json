@@ -62,37 +62,6 @@
     },
     "extraEnv": { "type": "array" },
     "envFrom": { "type": "array" },
-    "sccache": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "injectClientEnv": { "type": "boolean" },
-        "wrapperPath": { "type": "string" },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "logLevel": { "type": "string" },
-        "idleTimeoutSeconds": { "type": "integer", "minimum": 0 },
-        "cacheSize": { "type": "string" },
-        "resources": { "type": "object" },
-        "extraEnv": { "type": "array" },
-        "persistence": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "existingClaim": { "type": "string" },
-            "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
-            "labels": { "type": "object", "additionalProperties": { "type": "string" } },
-            "storageClass": { "type": "string" },
-            "accessModes": { "type": "array" },
-            "volumeMode": { "type": "string" },
-            "size": { "type": "string" },
-            "mountPath": { "type": "string" },
-            "readOnly": { "type": "boolean" }
-          }
-        }
-      }
-    },
     "container": {
       "type": "object",
       "additionalProperties": true,

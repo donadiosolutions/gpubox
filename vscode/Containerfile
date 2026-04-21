@@ -15,8 +15,6 @@ ARG MINIFORGE_VERSION=26.1.1-3
 ARG MINIFORGE_SHA256=b25b828b702df4dd2a6d24d4eb56cfa912471dd8e3342cde2c3d86fe3dc2d870
 ARG UV_VERSION=0.11.7
 ARG UV_SHA256=6681d691eb7f9c00ac6a3af54252f7ab29ae72f0c8f95bdc7f9d1401c23ea868
-ARG SCCACHE_VERSION=0.14.0
-ARG SCCACHE_SHA256=8424b38cda4ecce616a1557d81328f3d7c96503a171eab79942fad618b42af44
 
 # OCI image metadata labels.
 #
@@ -107,6 +105,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       openssh-client \
       openssh-server \
       podman \
+      podman-compose \
       pahole \
       pcaputils \
       pkg-config \
@@ -219,17 +218,6 @@ RUN curl -fsSL \
   && rm -rf /tmp/uv.tgz /tmp/uv-x86_64-unknown-linux-gnu \
   && chown -R root:root /opt/conda \
   && chmod -R go-w /opt/conda
-
-# The upstream musl build is shipped as a static PIE binary, so it does not
-# require Ubuntu musl runtime packages in the image.
-RUN curl -fsSL \
-      "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
-      -o /tmp/sccache.tgz \
-  && echo "${SCCACHE_SHA256}  /tmp/sccache.tgz" | sha256sum -c - \
-  && tar -xzf /tmp/sccache.tgz -C /tmp \
-  && install -m 0755 /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/bin/sccache \
-  && ldd /usr/local/bin/sccache | grep -Eq 'statically linked|not a dynamic executable' \
-  && rm -rf /tmp/sccache.tgz /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl
 
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
