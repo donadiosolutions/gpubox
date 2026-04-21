@@ -96,10 +96,10 @@ helm upgrade --install gpubox gpubox/gpubox \
 
 List available versions with `helm search repo gpubox/gpubox --versions`.
 
-By default, the chart uses image tag `v<chart-version>` when `image.tag` is not
-set (for example, chart `1.0.0` deploys image `ghcr.io/donadiosolutions/gpubox:v1.0.0`).
-Set `image.digest` (for example, `sha256:...`) to pin the deployment to an
-immutable image while still using `image.tag` for readability.
+Released chart packages set `image.tag` and `image.digest` to the image ref that
+actually ships with that chart version. If you clear `image.tag`, the chart
+falls back to `v<chart-version>` (for example, chart `1.0.0` would use
+`ghcr.io/donadiosolutions/gpubox:v1.0.0`).
 
 ### Provide SSH authorized keys (recommended)
 

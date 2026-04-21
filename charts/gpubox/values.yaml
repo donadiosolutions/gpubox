@@ -19,11 +19,13 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/donadiosolutions/gpubox
-  # Defaults to v<Chart.version> when empty (for example, v1.0.0).
-  tag: ""
-  # Optional immutable image digest pin (for example, sha256:...).
-  # When set, the rendered image becomes <repository>:<tag>@<digest>.
-  digest: ""
+  # Release shipping should set this explicitly to the image tag that was
+  # actually built for the chart being published. When left empty, the chart
+  # falls back to v<Chart.version>.
+  tag: "v1.7.0"
+  # Release shipping should set this to the immutable digest that matches the
+  # selected image tag so chart publishes do not drift from the shipped image.
+  digest: "sha256:d0febdd11597022a7d5bb228678c8635bb7b73a3263bf0b5a12cc6a143a544e2"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

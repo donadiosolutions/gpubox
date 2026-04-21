@@ -24,6 +24,9 @@ release with:
 - container image metadata:
   - if `vscode/Containerfile` changed since the previous release tag, CI rebuilds and pushes an image for the current tag
   - otherwise, CI reuses the latest published image tag + digest in release install instructions
+- chart image defaults:
+  - before merging a release bump PR, update `charts/gpubox/values.yaml` `image.tag` and `image.digest` to the image ref that will actually ship
+  - if no effective `vscode/` context changes are present, set those fields to the reused published image tag + digest instead of the new chart version tag
 - release notes with:
   - `## Highlights`: optional AI-generated bullets (via pinned
     `openai/codex-action`) when `OPENAI_API_KEY` is configured; deterministic
