@@ -17,6 +17,8 @@ ARG MINIFORGE_VERSION=26.1.1-3
 ARG MINIFORGE_SHA256=b25b828b702df4dd2a6d24d4eb56cfa912471dd8e3342cde2c3d86fe3dc2d870
 ARG UV_VERSION=0.11.7
 ARG UV_SHA256=6681d691eb7f9c00ac6a3af54252f7ab29ae72f0c8f95bdc7f9d1401c23ea868
+ARG S5CMD_VERSION=2.3.0
+ARG S5CMD_SHA256=de0fdbfa3aceae55e069ba81a0fc17b2026567637603734a387b2fca06c299b4
 
 # OCI image metadata labels.
 #
@@ -228,6 +230,14 @@ RUN curl -fsSL \
   && chmod -R go-w /opt/conda
 
 RUN curl -fsSL \
+      "https://github.com/peak/s5cmd/releases/download/v${S5CMD_VERSION}/s5cmd_${S5CMD_VERSION}_Linux-64bit.tar.gz" \
+      -o /tmp/s5cmd.tgz \
+  && echo "${S5CMD_SHA256}  /tmp/s5cmd.tgz" | sha256sum -c - \
+  && tar -xzf /tmp/s5cmd.tgz -C /tmp s5cmd \
+  && install -m 0755 /tmp/s5cmd /usr/local/bin/s5cmd \
+  && rm -f /tmp/s5cmd.tgz /tmp/s5cmd
+
+RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
       -o /tmp/vscode-cli.tgz \
   && echo "${VSCODE_CLI_SHA256}  /tmp/vscode-cli.tgz" | sha256sum -c - \
@@ -239,6 +249,7 @@ RUN curl -fsSL \
   && test -x /usr/local/share/gpubox-seeds/pyenv/bin/pyenv \
   && test -s /usr/local/share/gpubox-seeds/nvm/nvm.sh \
   && command -v pipx \
+  && command -v s5cmd \
   && command -v npx
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
