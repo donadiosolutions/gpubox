@@ -35,6 +35,148 @@ copy_file_if_distinct() {
   cp -f "${src}" "${dest}"
 }
 
+ensure_dir_owned() {
+  local dir="$1"
+  local owner="$2"
+  local group="$3"
+  local mode="${4:-0755}"
+
+  if [[ -e "${dir}" && ! -d "${dir}" ]]; then
+    echo "ERROR: ${dir} exists but is not a directory." >&2
+    return 1
+  fi
+
+  if [[ ! -d "${dir}" ]]; then
+    mkdir -p "${dir}"
+    chmod "${mode}" "${dir}" || true
+  fi
+
+  chown "${owner}:${group}" "${dir}" || true
+}
+
+ensure_file_owned() {
+  local path="$1"
+  local owner="$2"
+  local group="$3"
+  local mode="$4"
+  local template="${5:-}"
+
+  if [[ -e "${path}" && ! -f "${path}" ]]; then
+    echo "ERROR: ${path} exists but is not a regular file." >&2
+    return 1
+  fi
+
+  if [[ ! -e "${path}" ]]; then
+    if [[ -n "${template}" && -f "${template}" ]] && [[ "${template}" != "${path}" ]]; then
+      cp -f "${template}" "${path}"
+    else
+      install -m "${mode}" /dev/null "${path}"
+    fi
+
+    chmod "${mode}" "${path}" || true
+  fi
+
+  chown "${owner}:${group}" "${path}" || true
+}
+
+append_managed_block_if_missing() {
+  local path="$1"
+  local marker="$2"
+  local content="$3"
+
+  if grep -Fq "${marker}" "${path}" 2>/dev/null; then
+    return 0
+  fi
+
+  if [[ -s "${path}" ]]; then
+    printf '\n' >>"${path}"
+  fi
+
+  printf '%s\n' "${content}" >>"${path}"
+}
+
+file_has_active_reference() {
+  local path="$1"
+  local pattern="$2"
+
+  grep -Eq "^[[:space:]]*[^#[:space:]].*${pattern}" "${path}" 2>/dev/null
+}
+
+ensure_shell_init_for_home() {
+  local home_dir="$1"
+  local owner="$2"
+  local group="$3"
+  local bashrc_path="${home_dir}/.bashrc"
+  local profile_path="${home_dir}/.profile"
+  local bashrc_dir="${home_dir}/.bashrc.d"
+  local profile_dir="${home_dir}/.profile.d"
+  local profile_creds_path="${home_dir}/.profilecreds"
+  local bashrc_template=""
+  local profile_template=""
+  local bashrc_block=""
+  local profile_dir_block=""
+  local profile_creds_block=""
+
+  if [[ "${home_dir}" != "/etc/skel" ]]; then
+    bashrc_template="/etc/skel/.bashrc"
+    profile_template="/etc/skel/.profile"
+  fi
+
+  ensure_dir_owned "${home_dir}" "${owner}" "${group}"
+  ensure_dir_owned "${bashrc_dir}" "${owner}" "${group}"
+  ensure_dir_owned "${profile_dir}" "${owner}" "${group}"
+  ensure_file_owned "${bashrc_path}" "${owner}" "${group}" 0644 "${bashrc_template}"
+  ensure_file_owned "${profile_path}" "${owner}" "${group}" 0644 "${profile_template}"
+  ensure_file_owned "${profile_creds_path}" "${owner}" "${group}" 0700
+  chmod 0700 "${profile_creds_path}" || true
+
+  read -r -d '' bashrc_block <<'EOF' || true
+# >>> gpubox-managed shell init: ~/.bashrc.d >>>
+if [ -d "$HOME/.bashrc.d" ]; then
+  for rc in "$HOME"/.bashrc.d/*; do
+    [ -r "$rc" ] || continue
+    [ -f "$rc" ] || continue
+    . "$rc"
+  done
+fi
+unset rc
+# <<< gpubox-managed shell init: ~/.bashrc.d <<<
+EOF
+
+  read -r -d '' profile_dir_block <<'EOF' || true
+# >>> gpubox-managed shell init: ~/.profile.d >>>
+if [ -d "$HOME/.profile.d" ]; then
+  for rc in "$HOME"/.profile.d/*; do
+    [ -r "$rc" ] || continue
+    [ -f "$rc" ] || continue
+    . "$rc"
+  done
+fi
+unset rc
+# <<< gpubox-managed shell init: ~/.profile.d <<<
+EOF
+
+  read -r -d '' profile_creds_block <<'EOF' || true
+# >>> gpubox-managed shell init: ~/.profilecreds >>>
+if [ -r "$HOME/.profilecreds" ]; then
+  . "$HOME/.profilecreds"
+fi
+# <<< gpubox-managed shell init: ~/.profilecreds <<<
+EOF
+
+  if ! file_has_active_reference "${bashrc_path}" '\.bashrc\.d'; then
+    append_managed_block_if_missing "${bashrc_path}" "# >>> gpubox-managed shell init: ~/.bashrc.d >>>" "${bashrc_block}"
+  fi
+
+  if ! file_has_active_reference "${profile_path}" '\.profile\.d'; then
+    append_managed_block_if_missing "${profile_path}" "# >>> gpubox-managed shell init: ~/.profile.d >>>" "${profile_dir_block}"
+  fi
+
+  if ! file_has_active_reference "${profile_path}" '\.profilecreds'; then
+    append_managed_block_if_missing "${profile_path}" "# >>> gpubox-managed shell init: ~/.profilecreds >>>" "${profile_creds_block}"
+  fi
+}
+
 ensure_podman_rootless_runtime() {
   local gpubox_uid=""
   local gpubox_gid=""
@@ -248,6 +390,10 @@ mkdir -p "${WORKDIR}" \
          "${CONDA_ENVS_DIR}" \
          "${CONDA_PKGS_DIR}" \
          "${FALLBACK_TMPDIR}"
+
+ensure_shell_init_for_home /etc/skel root root
+ensure_shell_init_for_home /root root root
+ensure_shell_init_for_home "${MNT_HOME}" gpubox gpubox
 
 # Avoid recursive chown (don’t punish yourself if home is huge).
 chown gpubox:gpubox "${MNT_HOME}" || true
