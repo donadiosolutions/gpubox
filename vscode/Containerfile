@@ -7,8 +7,10 @@ ARG UBUNTU_DIGEST
 ARG DEBIAN_FRONTEND=noninteractive
 ARG VSCODE_CLI_VERSION=1.116.0
 ARG VSCODE_CLI_SHA256=e4f0f630ff09b9b727bc350430a4068cb4b1ff63ba2ac20e67fb19cdef17d482
-ARG GO_VERSION=1.26.2
-ARG GO_SHA256=990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282
+ARG PYENV_VERSION=2.6.27
+ARG PYENV_DIGEST=914ff800628758a8feda2ea57d9c6b91799d9464
+ARG NVM_VERSION=0.40.4
+ARG NVM_DIGEST=62387b8f92aa012d48202747fd75c40850e5e261
 ARG NODE_VERSION=24.15.0
 ARG NODE_SHA256=472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6
 ARG MINIFORGE_VERSION=26.1.1-3
@@ -83,6 +85,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       gdb \
       gh \
       git \
+      golang-go \
       gpg \
       gosu \
       htop \
@@ -102,6 +105,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       llvm \
       lsof \
       mtr \
+      npm \
       openssh-client \
       openssh-server \
       podman \
@@ -178,15 +182,18 @@ RUN mkdir -p /home/gpubox/workspace \
   && chown -R gpubox:gpubox /home/gpubox \
   && chmod 700 /home/gpubox/.ssh
 
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tgz \
-  && echo "${GO_SHA256}  /tmp/go.tgz" | sha256sum -c - \
-  && rm -rf /usr/local/go \
-  && tar -xzf /tmp/go.tgz -C /usr/local \
-  && rm -f /tmp/go.tgz \
-  && ln -sf /usr/local/go/bin/go /usr/local/bin/go \
-  && ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt \
-  && ln -sf /usr/local/bin/go /usr/local/bin/golang \
-  && mkdir -p /usr/local/lib/nodejs \
+RUN set -eux; \
+  install -d -m 0755 /usr/local/share/gpubox-seeds; \
+  git clone --branch "v${PYENV_VERSION}" --depth 1 https://github.com/pyenv/pyenv.git /usr/local/share/gpubox-seeds/pyenv; \
+  test "$(git -C /usr/local/share/gpubox-seeds/pyenv rev-parse HEAD)" = "${PYENV_DIGEST}"; \
+  rm -rf /usr/local/share/gpubox-seeds/pyenv/.git; \
+  git clone --branch "v${NVM_VERSION}" --depth 1 https://github.com/nvm-sh/nvm.git /usr/local/share/gpubox-seeds/nvm; \
+  test "$(git -C /usr/local/share/gpubox-seeds/nvm rev-parse HEAD)" = "${NVM_DIGEST}"; \
+  rm -rf /usr/local/share/gpubox-seeds/nvm/.git; \
+  PYENV_ROOT=/usr/local/share/gpubox-seeds/pyenv /usr/local/share/gpubox-seeds/pyenv/bin/pyenv --version >/dev/null; \
+  bash -lc 'export NVM_DIR=/usr/local/share/gpubox-seeds/nvm; . "$NVM_DIR/nvm.sh"; command -v nvm >/dev/null'
+
+RUN mkdir -p /usr/local/lib/nodejs \
   && curl -fsSL \
       "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
       -o /tmp/node.tar.xz \
@@ -194,8 +201,6 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go
   && tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs \
   && rm -f /tmp/node.tar.xz \
   && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/node /usr/local/bin/node \
-  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/npm /usr/local/bin/npm \
-  && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/npx /usr/local/bin/npx \
   && ln -sf /usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-x64/bin/corepack /usr/local/bin/corepack
 
 RUN curl -fsSL \
@@ -226,12 +231,22 @@ RUN curl -fsSL \
   && tar -xzf /tmp/vscode-cli.tgz -C /usr/local/bin \
   && rm -f /tmp/vscode-cli.tgz \
   && chmod +x /usr/local/bin/code \
+  && command -v go \
+  && command -v npm \
+  && test -x /usr/local/share/gpubox-seeds/pyenv/bin/pyenv \
+  && test -s /usr/local/share/gpubox-seeds/nvm/nvm.sh \
   && command -v pipx \
   && command -v npx
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY instkheaders.sh /usr/local/bin/instkheaders
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/instkheaders
+COPY 01-path-munge.sh 02-path-defaults.sh 99-path-clean.sh /usr/local/share/gpubox-shell-init/
+RUN chmod +x \
+      /usr/local/bin/entrypoint.sh \
+      /usr/local/bin/instkheaders \
+      /usr/local/share/gpubox-shell-init/01-path-munge.sh \
+      /usr/local/share/gpubox-shell-init/02-path-defaults.sh \
+      /usr/local/share/gpubox-shell-init/99-path-clean.sh
 
 ENV HOME=/home/gpubox \
     USER=gpubox \
