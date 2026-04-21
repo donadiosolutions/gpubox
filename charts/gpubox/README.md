@@ -22,7 +22,10 @@ helm upgrade --install gpubox ./charts/gpubox \
 - `containerSecurityContext.privileged=true` (default) is required for the `hostPath: /` mount.
 - `pod.hostPID=false` by default; set `pod.hostPID=true` if you need host process visibility.
 - `resources.limits.nvidia.com/gpu` controls GPU allocation.
-- `image.digest` can pin an immutable container digest (`sha256:...`) while still setting `image.tag`.
+- release shipping sets `image.tag` to the image tag that ships with the
+  chart, and sets `image.digest` when the chart intentionally reuses an
+  existing immutable image; if `image.tag` is cleared, the chart falls back to
+  `v<Chart.Version>`.
 - `persistence.home`, `persistence.transfer`, and `persistence.tmp` configure PVC sizes and storage classes.
 - `ssh.authorizedKeys` injects `authorized_keys` into the mounted home volume via an initContainer.
 - `tolerations`, `affinity`, `nodeSelector` allow pinning to GPU nodes.
