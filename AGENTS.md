@@ -81,6 +81,7 @@ scripts/release/publish.sh vX.Y.Z
 ```
 
 Notes:
+
 - Tag CI intentionally prepares draft releases first; publishing is a separate explicit action.
 - `scripts/release/publish.sh` requires `gh` and `jq` on `PATH`.
 - GitHub may temporarily show an `untagged-*` URL while updates propagate. Treat

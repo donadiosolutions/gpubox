@@ -34,6 +34,7 @@ helm upgrade --install gpubox ./charts/gpubox \
 ## Extra resources
 
 `extraResources` accepts a list of resources where each item is either:
+
 - A YAML object.
 - A YAML string snippet.
 
@@ -58,6 +59,7 @@ extraResources:
 ```
 
 Validation and metadata behavior:
+
 - Each `extraResources` item must render to exactly one YAML object.
 - Required fields are validated at render time: `apiVersion`, `kind`, and `metadata.name`.
 - If `metadata.namespace` is omitted, the chart injects `.Release.Namespace` for namespaced resources.
@@ -65,6 +67,7 @@ Validation and metadata behavior:
 - Standard chart labels are added when missing; existing user-provided label values are preserved.
 
 Security note:
+
 - `extraResources` can create privileged or cluster-scoped objects (for example, RBAC and CRDs). Review and control supplied manifests carefully.
 
 ## SSH authorized keys
