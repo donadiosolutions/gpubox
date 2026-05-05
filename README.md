@@ -27,9 +27,9 @@ This repository contains two main pieces:
   `sshd` (with persisted host keys under the home volume and a startup readiness
   check) and runs `code tunnel ...` so you can attach from local VS Code and
   still have standard SSH access on port `22`.
-- **Rootless Podman ready**: Podman is preinstalled with `uidmap`,
-  `fuse-overlayfs`, and `slirp4netns`, with system + per-user config for
-  rootless runtime directories and Podman defaults.
+- **Rootless Podman ready**: Podman and `skopeo` are preinstalled with
+  `uidmap`, `fuse-overlayfs`, and `slirp4netns`, with system + per-user config
+  for rootless runtime directories and Podman defaults.
 - **Rootless Podman + CUDA ready**: when NVIDIA GPU Operator injects runtime
   artifacts, startup syncs NVIDIA CDI specs (and OCI hook fallback), adjusts
   rootless-compatible NVIDIA runtime cgroup behavior (when config is present),
