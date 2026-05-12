@@ -73,6 +73,7 @@ LABEL org.opencontainers.image.title="${OCI_TITLE}" \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash-completion \
+      bat \
       bpfcc-tools \
       bpftrace \
       bzip2 \
@@ -84,7 +85,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       clang \
       cmake \
       curl \
+      direnv \
       dnsutils \
+      fd-find \
+      file \
+      findutils \
+      fzf \
       gdb \
       gh \
       git \
@@ -95,6 +101,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       iperf3 \
       iproute2 \
       iputils-ping \
+      jq \
       less \
       libbz2-dev \
       libbpf-dev \
@@ -106,11 +113,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libsqlite3-dev \
       libssl-dev \
       llvm \
+      lsb-release \
       lsof \
       mtr \
+      nmap \
       npm \
       openssh-client \
       openssh-server \
+      patch \
       podman \
       podman-compose \
       pahole \
@@ -122,8 +132,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       pipx \
       python3-venv \
       rsync \
+      ripgrep \
       skopeo \
+      shellcheck \
       fuse-overlayfs \
+      socat \
+      sqlite3 \
       strace \
       sudo \
       tk-dev \
@@ -132,9 +146,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       tshark \
       tmux \
       uidmap \
+      unzip \
       vim \
+      wget \
       xz-utils \
+      yq \
+      zip \
       zlib1g-dev \
+      zstd \
+  && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+  && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
   && chown root:root /usr/bin/bwrap \
   && chmod 4755 /usr/bin/bwrap \
   && rm -rf /var/lib/apt/lists/*
