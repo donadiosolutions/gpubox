@@ -3,9 +3,9 @@ entries:
   gpubox:
   - apiVersion: v2
     appVersion: 26.04-vscodecli-1.120.0
-    created: "2026-05-14T14:48:59.935783356Z"
+    created: "2026-05-14T14:50:37.046970051Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
-    digest: 4adeaecbbaaa2fd105bab86b002ea1f6e164f8a628027a0dcb4581a818051571
+    digest: 4eb53e87837688d2ab4eae06d1ad9b47fbb7ec0d28be6194592d6d62f68a144a
     keywords:
     - vscode
     - tunnel
@@ -19,7 +19,7 @@ entries:
     version: 2.4.0
   - apiVersion: v2
     appVersion: 26.04-vscodecli-1.120.0
-    created: "2026-05-14T14:48:59.935505364Z"
+    created: "2026-05-14T14:50:37.046651953Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 8018970972903fc5cf5ed6face8ecf871dbf212a43265070b74936a189b552e6
     keywords:
@@ -35,7 +35,7 @@ entries:
     version: 2.3.0
   - apiVersion: v2
     appVersion: 26.04-vscodecli-1.118.1
-    created: "2026-05-14T14:48:59.935233424Z"
+    created: "2026-05-14T14:50:37.046340223Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 8ee979061da6d51643c304011d2d5530bf91e81895ad79f70ce1449521e65a3f
     keywords:
@@ -51,7 +51,7 @@ entries:
     version: 2.2.0
   - apiVersion: v2
     appVersion: 26.04-vscodecli-1.118.1
-    created: "2026-05-14T14:48:59.934953579Z"
+    created: "2026-05-14T14:50:37.046026967Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 577590246dd60e5594de067e44dfce3f72568496f8dfc418f4f743ddd50d73b8
     keywords:
@@ -67,7 +67,7 @@ entries:
     version: 2.1.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.116.0
-    created: "2026-05-14T14:48:59.934671179Z"
+    created: "2026-05-14T14:50:37.045697028Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 1f50727837b58ec3b99cce9aa657b16842c473bec25c4510a90f10b7a1b7b8e8
     keywords:
@@ -83,7 +83,7 @@ entries:
     version: 2.0.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.116.0
-    created: "2026-05-14T14:48:59.934370595Z"
+    created: "2026-05-14T14:50:37.045354516Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: e0e6998a82ed5e67aa8e527e9e41b2f01b5bd3fe56f3198581da26e1f0f3c1bd
     keywords:
@@ -99,7 +99,7 @@ entries:
     version: 2.0.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.116.0
-    created: "2026-05-14T14:48:59.933975794Z"
+    created: "2026-05-14T14:50:37.044969418Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 509230f7f7d42fa4fe00bbd3726731142ce37fda447f6ac5eb3e3fd9b83862de
     keywords:
@@ -115,7 +115,7 @@ entries:
     version: 2.0.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.116.0
-    created: "2026-05-14T14:48:59.933513988Z"
+    created: "2026-05-14T14:50:37.043978469Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 8265ee7432ae672c6b50a12efdeab3f01120aecea5848d9913bba5b014e298d6
     keywords:
@@ -131,7 +131,7 @@ entries:
     version: 1.7.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.113.0
-    created: "2026-05-14T14:48:59.933033887Z"
+    created: "2026-05-14T14:50:37.043504577Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: b239f468306d98c88a3397951ae73cb89b62db7ea011e2cd26627d65cc8bb6a4
     keywords:
@@ -147,7 +147,7 @@ entries:
     version: 1.6.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.111.0
-    created: "2026-05-14T14:48:59.932610603Z"
+    created: "2026-05-14T14:50:37.043096056Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 6ce09a98b15bdfc7f76ba2d9c0b8e9345ffc61382e0298752410c44ec7af9dff
     keywords:
@@ -163,7 +163,7 @@ entries:
     version: 1.5.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.111.0
-    created: "2026-05-14T14:48:59.932244165Z"
+    created: "2026-05-14T14:50:37.042679078Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 100458b59875d11bf71f2825dd28058721c9a50d707787b4bc3b60b26aa70e1c
     keywords:
@@ -179,7 +179,7 @@ entries:
     version: 1.5.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.111.0
-    created: "2026-05-14T14:48:59.931859022Z"
+    created: "2026-05-14T14:50:37.042318186Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: edf48b5cf7b0a73a08f16b87bd4a30950e204db2affa637c41ec8114c7bbb34a
     keywords:
@@ -195,7 +195,7 @@ entries:
     version: 1.4.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.110.0
-    created: "2026-05-14T14:48:59.931577534Z"
+    created: "2026-05-14T14:50:37.041821512Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 9c5cc5037823b31c71268eca5853658bab8589ff3fa96a46479f373eddefb749
     keywords:
@@ -211,7 +211,7 @@ entries:
     version: 1.4.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.110.0
-    created: "2026-05-14T14:48:59.931302428Z"
+    created: "2026-05-14T14:50:37.041424151Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: fb141309c318881de9fd50b395acdd03b8797f607d8c9b8c431da012cd2376f7
     keywords:
@@ -227,7 +227,7 @@ entries:
     version: 1.4.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.110.0
-    created: "2026-05-14T14:48:59.931000161Z"
+    created: "2026-05-14T14:50:37.041035464Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: b1df1db6a752e7bb9ea54e2afd7eab454b4a97a215ab4fe0ab58b83821e5f7e7
     keywords:
@@ -243,7 +243,7 @@ entries:
     version: 1.3.3
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.5
-    created: "2026-05-14T14:48:59.930699216Z"
+    created: "2026-05-14T14:50:37.040620682Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 5bd490965e2aba31e6734fb4da4945db0a3aaf97e85a474f584ebf7696d8676e
     keywords:
@@ -259,7 +259,7 @@ entries:
     version: 1.3.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.5
-    created: "2026-05-14T14:48:59.930368215Z"
+    created: "2026-05-14T14:50:37.039933484Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: c66a80d2ac3d9fcdf3828e342e5704f8d45b9a453de8f007ea3e84697f4a8855
     keywords:
@@ -275,7 +275,7 @@ entries:
     version: 1.3.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.5
-    created: "2026-05-14T14:48:59.928673675Z"
+    created: "2026-05-14T14:50:37.039213925Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 44a3afa29e0e2cd54acd05093275fb549b8b3265545b1dd83fed5969f3d87f83
     keywords:
@@ -291,7 +291,7 @@ entries:
     version: 1.3.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.5
-    created: "2026-05-14T14:48:59.92830861Z"
+    created: "2026-05-14T14:50:37.038860842Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: cb2c9bbce31f06f0ef11a134a83ef7e01211bc5dc5930ccf5540b8c28a07cd29
     keywords:
@@ -307,7 +307,7 @@ entries:
     version: 1.2.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.4
-    created: "2026-05-14T14:48:59.927992757Z"
+    created: "2026-05-14T14:50:37.038497742Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: cb96c8f4f5fec3a8ab2e713a81eabdfdb32eb739ee22521340d872e78af538b3
     keywords:
@@ -323,7 +323,7 @@ entries:
     version: 1.2.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.4
-    created: "2026-05-14T14:48:59.927681984Z"
+    created: "2026-05-14T14:50:37.03721341Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: e19e09c4a9bc8dc291b2afc470a33f6a93d8965e9c585d78965c9e10fb25325e
     keywords:
@@ -339,7 +339,7 @@ entries:
     version: 1.1.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.1
-    created: "2026-05-14T14:48:59.927375659Z"
+    created: "2026-05-14T14:50:37.036886366Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: c5698e6a276a8d05b1226e84125aa9f7c0aa3b0d8a4326ca500757e32e20c6db
     keywords:
@@ -355,7 +355,7 @@ entries:
     version: 1.1.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.1
-    created: "2026-05-14T14:48:59.927047323Z"
+    created: "2026-05-14T14:50:37.036552306Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: b26bf26e184c8d30abde76e8868d7a35a8d3b0c66600503ef6faa28f6ffdf819
     keywords:
@@ -371,7 +371,7 @@ entries:
     version: 1.1.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.1
-    created: "2026-05-14T14:48:59.926723375Z"
+    created: "2026-05-14T14:50:37.036216496Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: e44e5af06d0e998be2f928afe1187198947c31c0454a822b461879ce3fbb57ae
     keywords:
@@ -387,7 +387,7 @@ entries:
     version: 1.0.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.1
-    created: "2026-05-14T14:48:59.926481281Z"
+    created: "2026-05-14T14:50:37.035866043Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 40f06dbaf9173926f4f90f004b0b91129a5cf22a357f2eab74232029cd394ffc
     keywords:
@@ -403,7 +403,7 @@ entries:
     version: 0.3.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.109.1
-    created: "2026-05-14T14:48:59.926228096Z"
+    created: "2026-05-14T14:50:37.035483162Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 44dd646e54665fabcfbf6180f6fa8058f3886df58abc659d305c0e5096b1425b
     keywords:
@@ -419,7 +419,7 @@ entries:
     version: 0.2.3
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-05-14T14:48:59.925960283Z"
+    created: "2026-05-14T14:50:37.034152345Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: f011e03fb15d5b50bae914ba0651dca5bd7035dc6245c89f0afbc2e8eb74c4b8
     keywords:
@@ -435,7 +435,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-05-14T14:48:59.925705184Z"
+    created: "2026-05-14T14:50:37.033515295Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 7a011de2cc384e8b36c216a78de9f150facd19b613a3037a36658e3564b77a52
     keywords:
@@ -451,7 +451,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-05-14T14:48:59.925445567Z"
+    created: "2026-05-14T14:50:37.032961133Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: 365fdfc6ae4424caeccacf7bc7e20f1306d228fec7161b5626328e0c33869800
     keywords:
@@ -467,7 +467,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 24.04-vscodecli-1.108.2
-    created: "2026-05-14T14:48:59.925125547Z"
+    created: "2026-05-14T14:50:37.032597707Z"
     description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
     digest: a049514cf32d6d780cead279701c150b5a7ca10c10d6340a144efcd9f3dec72f
     keywords:
@@ -481,4 +481,4 @@ entries:
     urls:
     - https://donadiosolutions.github.io/gpubox/gpubox-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-14T14:48:59.924636499Z"
+generated: "2026-05-14T14:50:37.032163029Z"
