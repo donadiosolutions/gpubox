@@ -12,6 +12,15 @@
   "dockerfile": {
     "managerFilePatterns": ["/^vscode\\/Containerfile$/"]
   },
+  "pip_requirements": {
+    "managerFilePatterns": [
+      "/^vscode\\/requirements\\.txt$/",
+      "/^vscode\\/honcho-cli-requirements\\.(in|txt)$/"
+    ]
+  },
+  "npm": {
+    "managerFilePatterns": ["/^vscode\\/package\\.json$/"]
+  },
   "helm-values": {
     "managerFilePatterns": ["/^charts\\/gpubox\\/values\\.yaml$/"]
   },
@@ -49,6 +58,13 @@
       "format": "plain",
       "transformTemplates": [
         "( $line := $$.releases[$contains(version, \"_Linux-64bit.tar.gz\")][0].version; $parts := $split($line, \"  \"); $filename := $parts[1]; $filenameParts := $split($filename, \"_\"); { \"releases\": [{ \"version\": $filenameParts[1] & \"@\" & $parts[0] }], \"sourceUrl\": \"https://github.com/peak/s5cmd/releases\" } )"
+      ]
+    },
+    "sfwFreeLinuxX64WithShaBlock": {
+      "defaultRegistryUrlTemplate": "https://api.github.com/repos/SocketDev/sfw-free/releases/latest",
+      "format": "json",
+      "transformTemplates": [
+        "( $asset := $$.assets[name=\"sfw-free-linux-x86_64\"][0]; { \"releases\": [{ \"version\": $$.tag_name & \"@\" & $asset.digest }], \"sourceUrl\": \"https://github.com/SocketDev/sfw-free\" } )"
       ]
     }
   },
@@ -161,6 +177,19 @@
     },
     {
       "customType": "regex",
+      "description": "Socket Firewall free native binary version + sha256 (Linux x86_64)",
+      "managerFilePatterns": ["/^vscode\\/Containerfile$/"],
+      "matchStrings": [
+        "ARG SFW_FREE_VERSION=(?<currentVersion>\\S+)\\nARG SFW_FREE_SHA256=(?<currentHash>[a-f0-9]{64})"
+      ],
+      "currentValueTemplate": "v{{{currentVersion}}}@sha256:{{{currentHash}}}",
+      "datasourceTemplate": "custom.sfwFreeLinuxX64WithShaBlock",
+      "depNameTemplate": "sfw-free",
+      "versioningTemplate": "loose",
+      "autoReplaceStringTemplate": "ARG SFW_FREE_VERSION={{{replace \"^v\" \"\" (replace \"@.*\" \"\" newValue)}}}\nARG SFW_FREE_SHA256={{{replace \"^.*sha256:\" \"\" newValue}}}"
+    },
+    {
+      "customType": "regex",
       "description": "Helm CLI version used by azure/setup-helm",
       "managerFilePatterns": ["/^\\.github\\/workflows\\/build\\.yml$/"],
       "matchStrings": ["version:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)"],
@@ -240,11 +269,12 @@
       "matchDatasources": [
         "custom.goLinuxAmd64WithShaBlock",
         "custom.nodeLtsLinuxX64WithShaBlock",
+        "custom.sfwFreeLinuxX64WithShaBlock",
         "custom.s5cmdLinuxX64WithShaBlock",
         "github-release-attachments",
         "github-tags"
       ],
-      "matchDepNames": ["golang", "nodejs-lts", "s5cmd", "miniforge", "uv", "pyenv", "nvm"],
+      "matchDepNames": ["golang", "nodejs-lts", "sfw-free", "s5cmd", "miniforge", "uv", "pyenv", "nvm"],
       "groupName": "Container toolchains"
     },
     {
@@ -273,6 +303,21 @@
     {
       "matchManagers": ["pre-commit"],
       "groupName": "pre-commit hooks"
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["vscode/requirements.txt"],
+      "groupName": "Default Python environment"
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["vscode/honcho-cli-requirements.in", "vscode/honcho-cli-requirements.txt"],
+      "groupName": "Default uv tools"
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchFileNames": ["vscode/package.json"],
+      "groupName": "Default npm tools"
     }
   ]
 }
