@@ -100,6 +100,59 @@ ensure_bwrap_setuid() {
   fi
 }
 
+read_perf_event_paranoid() {
+  local path="$1"
+  local value=""
+
+  read -r value <"${path}"
+  printf '%s' "${value}"
+}
+
+set_perf_event_paranoid_value() {
+  local path="$1"
+  local value="$2"
+
+  if command -v sysctl >/dev/null 2>&1 && sysctl -q -w "kernel.perf_event_paranoid=${value}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ -w "${path}" ]] && (printf '%s\n' "${value}" >"${path}") 2>/dev/null; then
+    return 0
+  fi
+
+  return 1
+}
+
+configure_perf_event_paranoid() {
+  local path="/proc/sys/kernel/perf_event_paranoid"
+  local current=""
+  local applied=""
+  local value=""
+
+  if [[ ! -e "${path}" ]]; then
+    echo "WARN: ${path} is unavailable; skipping perf_event_paranoid setup." >&2
+    return 0
+  fi
+
+  current="$(read_perf_event_paranoid "${path}")" || current="unknown"
+
+  for value in -1 0 1 2; do
+    if [[ "${current}" =~ ^-?[0-9]+$ ]] && (( value > current )); then
+      continue
+    fi
+
+    if set_perf_event_paranoid_value "${path}" "${value}"; then
+      applied="$(read_perf_event_paranoid "${path}")" || applied="${value}"
+      echo "Set kernel.perf_event_paranoid=${applied} (was ${current})." >&2
+      return 0
+    fi
+  done
+
+  current="$(read_perf_event_paranoid "${path}")" || current="unknown"
+  echo "WARN: Could not lower kernel.perf_event_paranoid; leaving value at ${current}." >&2
+  return 0
+}
+
 append_managed_block_if_missing() {
   local path="$1"
   local marker="$2"
@@ -657,6 +710,7 @@ chown -R gpubox:gpubox "${MNT_HOME}/.config" "${MNT_HOME}/.local" "${MNT_HOME}/.
 ensure_podman_rootless_runtime
 ensure_gpubox_gpu_device_access
 ensure_podman_cuda_support
+configure_perf_event_paranoid
 
 # PVC-backed /tmp mounts are commonly created without 01777 semantics.
 # VS Code needs a writable temp dir to create singleton sockets.

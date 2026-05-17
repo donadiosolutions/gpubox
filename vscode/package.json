@@ -1,0 +1,14 @@
+{
+  "name": "gpubox-default-npm-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Default npm CLI tools installed in the gpubox container image.",
+  "license": "MIT",
+  "dependencies": {
+    "@donadiosolutions/lcm": "1.0.1",
+    "@openai/codex": "0.130.0",
+    "firecrawl-cli": "1.17.1",
+    "sfw": "2.0.4",
+    "socket": "1.1.95"
+  }
+}

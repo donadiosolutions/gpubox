@@ -19,6 +19,8 @@ ARG UV_VERSION=0.11.14
 ARG UV_SHA256=f3b623eb0e6141a7053d571d59a0bdc341e0f238ea8f5f0b4815ddbec9a2a296
 ARG S5CMD_VERSION=2.3.0
 ARG S5CMD_SHA256=de0fdbfa3aceae55e069ba81a0fc17b2026567637603734a387b2fca06c299b4
+ARG SFW_FREE_VERSION=1.10.0
+ARG SFW_FREE_SHA256=1ea16f15f1217bde66ac9c7d0262c7126b7bb1b2d60e14e8fa0982456139ae6e
 
 # OCI image metadata labels.
 #
@@ -74,6 +76,7 @@ LABEL org.opencontainers.image.title="${OCI_TITLE}" \
 RUN apt-get update && apt-get install -y --no-install-recommends \
       bash-completion \
       bat \
+      bpftool \
       bpfcc-tools \
       bpftrace \
       bzip2 \
@@ -112,11 +115,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libreadline-dev \
       libsqlite3-dev \
       libssl-dev \
+      linux-perf \
+      linux-tools-common \
       llvm \
       lsb-release \
       lsof \
       mtr \
       nmap \
+      nvtop \
       npm \
       openssh-client \
       openssh-server \
@@ -140,7 +146,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       sqlite3 \
       strace \
       sudo \
+      sysstat \
       tk-dev \
+      trace-cmd \
       tree \
       tini \
       tshark \
@@ -259,6 +267,55 @@ RUN curl -fsSL \
   && install -m 0755 /tmp/s5cmd /usr/local/bin/s5cmd \
   && rm -f /tmp/s5cmd.tgz /tmp/s5cmd
 
+COPY package.json package-lock.json /usr/local/share/gpubox-npm/
+RUN cd /usr/local/share/gpubox-npm \
+  && npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+  && npm cache clean --force \
+  && install -m 0755 -d "/usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/v${SFW_FREE_VERSION}" \
+  && curl -fsSL \
+      "https://github.com/SocketDev/sfw-free/releases/download/v${SFW_FREE_VERSION}/sfw-free-linux-x86_64" \
+      -o "/usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/v${SFW_FREE_VERSION}/sfw-free-linux-x86_64" \
+  && echo "${SFW_FREE_SHA256}  /usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/v${SFW_FREE_VERSION}/sfw-free-linux-x86_64" | sha256sum -c - \
+  && chmod 0755 "/usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/v${SFW_FREE_VERSION}/sfw-free-linux-x86_64" \
+  && ln -sfn \
+      "/usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/v${SFW_FREE_VERSION}/sfw-free-linux-x86_64" \
+      /usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/latest \
+  && printf '%s\n' '9999-12-31T23:59:59.000Z' \
+      >/usr/local/share/gpubox-npm/node_modules/sfw/.sfw-cache/next-check \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/codex /usr/local/bin/codex \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/sfw /usr/local/bin/sfw \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/socket /usr/local/bin/socket \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/socket-npm /usr/local/bin/socket-npm \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/socket-npx /usr/local/bin/socket-npx \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/socket-pnpm /usr/local/bin/socket-pnpm \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/socket-yarn /usr/local/bin/socket-yarn \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/firecrawl /usr/local/bin/firecrawl \
+  && ln -sf /usr/local/share/gpubox-npm/node_modules/.bin/lcm /usr/local/bin/lcm \
+  && command -v codex \
+  && command -v sfw \
+  && command -v socket \
+  && command -v firecrawl \
+  && command -v lcm \
+  && sfw --help >/dev/null
+
+COPY honcho-cli-requirements.txt /usr/local/share/gpubox-uv-tools/honcho-cli-requirements.txt
+RUN UV_TOOL_DIR=/usr/local/share/gpubox-uv-tools \
+    UV_TOOL_BIN_DIR=/usr/local/bin \
+    uv tool install --python /opt/conda/bin/python honcho-cli==0.1.0 \
+  && uv pip install \
+      --python /usr/local/share/gpubox-uv-tools/honcho-cli/bin/python \
+      --require-hashes \
+      --reinstall \
+      -r /usr/local/share/gpubox-uv-tools/honcho-cli-requirements.txt \
+  && rm -rf /root/.cache/uv \
+  && command -v honcho \
+  && honcho --help >/dev/null
+
+COPY requirements.txt /usr/local/share/gpubox-python/requirements.txt
+RUN /opt/conda/bin/python -m pip install --no-cache-dir --require-hashes \
+      -r /usr/local/share/gpubox-python/requirements.txt \
+  && /opt/conda/bin/python -c 'import hf_transfer; import huggingface_hub'
+
 RUN curl -fsSL \
       "https://update.code.visualstudio.com/${VSCODE_CLI_VERSION}/cli-linux-x64/stable" \
       -o /tmp/vscode-cli.tgz \
@@ -276,12 +333,13 @@ RUN curl -fsSL \
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY instkheaders.sh /usr/local/bin/instkheaders
-COPY 01-path-munge.sh 02-path-defaults.sh 99-path-clean.sh /usr/local/share/gpubox-shell-init/
+COPY 01-path-munge.sh 02-path-defaults.sh 10-huggingface-defaults.sh 99-path-clean.sh /usr/local/share/gpubox-shell-init/
 RUN chmod +x \
       /usr/local/bin/entrypoint.sh \
       /usr/local/bin/instkheaders \
       /usr/local/share/gpubox-shell-init/01-path-munge.sh \
       /usr/local/share/gpubox-shell-init/02-path-defaults.sh \
+      /usr/local/share/gpubox-shell-init/10-huggingface-defaults.sh \
       /usr/local/share/gpubox-shell-init/99-path-clean.sh
 
 ENV HOME=/home/gpubox \
