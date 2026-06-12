@@ -19,7 +19,7 @@ repos:
         exclude: ^charts/[^/]+/templates/
 
   - repo: https://github.com/jackdewinter/pymarkdown
-    rev: v0.9.37
+    rev: v0.9.38
     hooks:
       - id: pymarkdown
         args: ["--config", ".pymarkdown.json", "--strict-config", "scan"]
