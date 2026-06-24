@@ -99,6 +99,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
       golang-go \
       gpg \
+      gpg-agent \
       gosu \
       htop \
       iperf3 \
@@ -148,6 +149,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       strace \
       sudo \
       sysstat \
+      time \
       tk-dev \
       trace-cmd \
       tree \
