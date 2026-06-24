@@ -149,6 +149,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       strace \
       sudo \
       sysstat \
+      time \
       tk-dev \
       trace-cmd \
       tree \
