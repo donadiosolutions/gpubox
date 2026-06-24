@@ -304,7 +304,7 @@ RUN cd /usr/local/share/gpubox-npm \
 COPY honcho-cli-requirements.txt /usr/local/share/gpubox-uv-tools/honcho-cli-requirements.txt
 RUN UV_TOOL_DIR=/usr/local/share/gpubox-uv-tools \
     UV_TOOL_BIN_DIR=/usr/local/bin \
-    uv tool install --python /opt/conda/bin/python honcho-cli==0.1.0 \
+    uv tool install --python /opt/conda/bin/python honcho-cli==0.1.1 \
   && uv pip install \
       --python /usr/local/share/gpubox-uv-tools/honcho-cli/bin/python \
       --require-hashes \
