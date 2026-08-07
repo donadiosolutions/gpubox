@@ -19,7 +19,7 @@ certifi==2026.6.17 \
 click==8.4.2 \
     --hash=sha256:9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6 \
     --hash=sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76
-    # via typer
+    # via honcho-cli
 h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
@@ -28,9 +28,9 @@ honcho-ai==2.1.2 \
     --hash=sha256:a22220f01a63f6a3c1d4625aaef0a142577b83981c42dcb61177631863fbaa4f \
     --hash=sha256:f2c01463931e1a16cc4396790e1b0387d596fb5eb8d6dc830d6ab742f8701224
     # via honcho-cli
-honcho-cli==0.1.1 \
-    --hash=sha256:3b52059181983b67960448f58f08cb3f9531e470f6ab404c5d939fa011df2687 \
-    --hash=sha256:c5ff88d76c2793a625a26d61bc20c06bc64d4711933aee8e612182025f082831
+honcho-cli==0.1.2 \
+    --hash=sha256:a693bd5c9384a7a494926adb7f06d4095b88036f48edd345f0adccc63008c0cd \
+    --hash=sha256:c802f0dfe22900ce98e1d4ee0f27193611b1b49d7f330f2c90714af29d40c5bc
     # via -r vscode/honcho-cli-requirements.in
 httpcore==1.0.9 \
     --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55 \
