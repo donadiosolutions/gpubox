@@ -5,11 +5,11 @@
   "description": "Default npm CLI tools installed in the gpubox container image.",
   "license": "MIT",
   "dependencies": {
-    "@donadiosolutions/lcm": "1.2.1",
-    "@openai/codex": "0.142.0",
-    "firecrawl-cli": "1.19.18",
+    "@donadiosolutions/lcm": "1.4.2",
+    "@openai/codex": "0.147.0",
+    "firecrawl-cli": "1.19.30",
     "sfw": "2.0.6",
-    "socket": "1.1.127"
+    "socket": "1.1.155"
   },
   "overrides": {
     "axios": "1.16.0",
