@@ -27,7 +27,7 @@ jobs:
       image_digest: ${{ steps.image_ref.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -173,11 +173,11 @@ jobs:
 
       - name: Setup Blacksmith Builder
         if: steps.changes.outputs.containerfile_changed == 'true'
-        uses: useblacksmith/setup-docker-builder@ab5c1da94f53f5cd75c1038092aa276dddfccbba # v1
+        uses: useblacksmith/setup-docker-builder@9309da73a81f66976a6d750572e221508b1e2682 # v1
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -185,7 +185,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -194,7 +194,7 @@ jobs:
       - name: Docker metadata
         id: meta
         if: steps.changes.outputs.containerfile_changed == 'true'
-        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: |
             ghcr.io/${{ github.repository_owner }}/gpubox
@@ -207,7 +207,7 @@ jobs:
 
       - name: Build image (no push)
         if: github.event_name == 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: ./vscode
           file: ./vscode/Containerfile
@@ -226,7 +226,7 @@ jobs:
       - name: Build and push image (SBOM + provenance)
         id: build_push
         if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
-        uses: useblacksmith/build-push-action@fb9e3e6a9299c78462bfadd0d93352c316adc9b8 # v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: ./vscode
           file: ./vscode/Containerfile
@@ -366,7 +366,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -399,13 +399,13 @@ jobs:
 
       - name: Attest chart package provenance (SLSA v1)
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
 
       - name: Attest chart package SBOM (SPDX 2.3)
         if: github.event_name != 'pull_request'
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ steps.package.outputs.tgz }}
           predicate-type: https://spdx.dev/Document/v2.3
