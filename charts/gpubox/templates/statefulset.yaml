@@ -10,6 +10,11 @@
 {{- $customSharedMemory = true -}}
 {{- end -}}
 {{- end -}}
+{{- range (list .Values.persistence.home .Values.persistence.transfer .Values.persistence.tmp .Values.persistence.hostRoot) -}}
+{{- if and (kindIs "map" .) (get . "enabled") (eq (default "" (get . "mountPath")) "/dev/shm") -}}
+{{- $customSharedMemory = true -}}
+{{- end -}}
+{{- end -}}
 {{- $managedSharedMemory := and .Values.sharedMemory.enabled (not $customSharedMemory) -}}
 {{- if and $sshAuthorizedKeysEnabled (not .Values.persistence.home.enabled) -}}
 {{- fail "ssh.authorizedKeys/existingAuthorizedKeysConfigMap requires persistence.home.enabled=true" -}}

@@ -107,7 +107,7 @@ resources:
 
 # Replace the container runtime's default /dev/shm with a memory-backed volume.
 # Memory consumed by this volume counts against the pod and node memory budgets.
-# Custom /dev/shm mounts or volumes named dshm take precedence over this volume.
+# Existing /dev/shm mounts or volumes named dshm take precedence over this volume.
 sharedMemory:
   enabled: true
   sizeLimit: 64Gi
