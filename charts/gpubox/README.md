@@ -25,7 +25,9 @@ helm upgrade --install gpubox ./charts/gpubox \
 - `sharedMemory.sizeLimit=64Gi` replaces the container runtime's default
   `/dev/shm` with a memory-backed volume sized for tensor-parallel workloads;
   set `sharedMemory.enabled=false` to keep the runtime default. Memory used by
-  the volume counts against the pod and node memory budgets.
+  the volume counts against the pod and node memory budgets. An
+  `extraVolumeMounts` entry at `/dev/shm` or `extraVolumes` entry named `dshm`
+  takes precedence, preserving existing custom shared-memory configurations.
 - release shipping sets `image.tag` to the image tag that ships with the
   chart, and sets `image.digest` when the chart intentionally reuses an
   existing immutable image; if `image.tag` is cleared, the chart falls back to

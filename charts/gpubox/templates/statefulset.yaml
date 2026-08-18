@@ -1,4 +1,16 @@
 {{- $sshAuthorizedKeysEnabled := or (gt (len .Values.ssh.authorizedKeys) 0) .Values.ssh.existingAuthorizedKeysConfigMap -}}
+{{- $customSharedMemory := false -}}
+{{- range .Values.extraVolumeMounts -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "mountPath")) "/dev/shm") -}}
+{{- $customSharedMemory = true -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.extraVolumes -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "name")) "dshm") -}}
+{{- $customSharedMemory = true -}}
+{{- end -}}
+{{- end -}}
+{{- $managedSharedMemory := and .Values.sharedMemory.enabled (not $customSharedMemory) -}}
 {{- if and $sshAuthorizedKeysEnabled (not .Values.persistence.home.enabled) -}}
 {{- fail "ssh.authorizedKeys/existingAuthorizedKeysConfigMap requires persistence.home.enabled=true" -}}
 {{- end -}}
@@ -111,7 +123,7 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
-        {{- if .Values.sharedMemory.enabled }}
+        {{- if $managedSharedMemory }}
         - name: dshm
           emptyDir:
             medium: Memory
@@ -182,7 +194,7 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            {{- if .Values.sharedMemory.enabled }}
+            {{- if $managedSharedMemory }}
             - name: dshm
               mountPath: /dev/shm
             {{- end }}
