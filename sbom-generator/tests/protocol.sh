@@ -172,6 +172,42 @@ def relationship_key(relationship):
     return json.dumps(relationship, sort_keys=True, separators=(",", ":"))
 
 
+def assert_relationships_preserved(
+    baseline_relationships, compact_relationships, file_ids
+):
+    retained_baseline = []
+    for relationship in baseline_relationships:
+        if not isinstance(relationship, dict):
+            raise AssertionError("baseline relationship is not an object")
+        endpoints = {
+            relationship.get("spdxElementId"),
+            relationship.get("relatedSpdxElement"),
+        }
+        if endpoints.isdisjoint(file_ids):
+            retained_baseline.append(relationship)
+
+    for relationship in compact_relationships:
+        if not isinstance(relationship, dict):
+            raise AssertionError("compact relationship is not an object")
+        endpoints = {
+            relationship.get("spdxElementId"),
+            relationship.get("relatedSpdxElement"),
+        }
+        if not endpoints.isdisjoint(file_ids):
+            raise AssertionError("compact relationship references a removed file")
+
+    expected_relationships = collections.Counter(
+        relationship_key(relationship) for relationship in retained_baseline
+    )
+    actual_relationships = collections.Counter(
+        relationship_key(relationship) for relationship in compact_relationships
+    )
+    if actual_relationships != expected_relationships:
+        raise AssertionError(
+            "compact relationships do not equal baseline non-file relationships"
+        )
+
+
 def assert_rejects_ambiguous_package_substitution():
     baseline_packages = [
         {
@@ -202,13 +238,24 @@ def assert_rejects_ambiguous_package_substitution():
             "relatedSpdxElement": "Package-B",
         }
     ]
-    expected = collections.Counter(
-        relationship_key(relationship) for relationship in baseline_relationships
-    )
-    actual = collections.Counter(
-        relationship_key(relationship) for relationship in compact_relationships
-    )
-    if actual == expected:
+    for baseline_package, compact_package in zip(
+        baseline_packages, compact_packages
+    ):
+        baseline_package = dict(baseline_package)
+        compact_package = dict(compact_package)
+        baseline_package.pop("SPDXID", None)
+        compact_package.pop("SPDXID", None)
+        if baseline_package != compact_package:
+            raise AssertionError("fixture packages are not identical apart from SPDXID")
+    try:
+        assert_relationships_preserved(
+            baseline_relationships, compact_relationships, set()
+        )
+    except AssertionError as error:
+        if "compact relationships do not equal baseline" in str(error):
+            return
+        raise
+    else:
         raise AssertionError(
             "adversarial Package-A -> Package-B substitution was accepted"
         )
@@ -302,37 +349,9 @@ if not isinstance(baseline_relationships, list):
 if not isinstance(compact_relationships, list):
     raise AssertionError("compact relationships is not an array")
 
-retained_baseline = []
-for relationship in baseline_relationships:
-    if not isinstance(relationship, dict):
-        raise AssertionError("baseline relationship is not an object")
-    endpoints = {
-        relationship.get("spdxElementId"),
-        relationship.get("relatedSpdxElement"),
-    }
-    if endpoints.isdisjoint(file_ids):
-        retained_baseline.append(relationship)
-
-for relationship in compact_relationships:
-    if not isinstance(relationship, dict):
-        raise AssertionError("compact relationship is not an object")
-    endpoints = {
-        relationship.get("spdxElementId"),
-        relationship.get("relatedSpdxElement"),
-    }
-    if not endpoints.isdisjoint(file_ids):
-        raise AssertionError("compact relationship references a removed file")
-
-expected_relationships = collections.Counter(
-    relationship_key(relationship) for relationship in retained_baseline
+assert_relationships_preserved(
+    baseline_relationships, compact_relationships, file_ids
 )
-actual_relationships = collections.Counter(
-    relationship_key(relationship) for relationship in compact_relationships
-)
-if actual_relationships != expected_relationships:
-    raise AssertionError(
-        "compact relationships do not equal baseline non-file relationships"
-    )
 
 print(
     "subject_image="
