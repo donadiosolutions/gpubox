@@ -107,6 +107,14 @@
     "command": { "type": "array" },
     "args": { "type": "array" },
     "resources": { "type": "object" },
+    "sharedMemory": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sizeLimit": { "type": "string", "minLength": 1 }
+      }
+    },
     "service": {
       "type": "object",
       "additionalProperties": true,

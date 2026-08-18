@@ -111,6 +111,12 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
+        {{- if .Values.sharedMemory.enabled }}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.sharedMemory.sizeLimit | quote }}
+        {{- end }}
         {{- if .Values.persistence.home.enabled }}
         - name: home
           persistentVolumeClaim:
@@ -176,6 +182,10 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if .Values.sharedMemory.enabled }}
+            - name: dshm
+              mountPath: /dev/shm
+            {{- end }}
             {{- if .Values.persistence.home.enabled }}
             - name: home
               mountPath: {{ .Values.persistence.home.mountPath | quote }}
