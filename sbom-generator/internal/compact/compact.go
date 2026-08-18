@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -103,52 +104,127 @@ func Statement(input []byte, maxBytes int64) ([]byte, error) {
 	return output, nil
 }
 
-// File compacts path and atomically replaces it after the replacement has
-// been completely written, synchronized, and closed.
-func File(path string, maxBytes int64) error {
+// Prepared contains a validated compacted statement ready for an atomic
+// filesystem commit.
+type Prepared struct {
+	Path string
+	Mode fs.FileMode
+	Data []byte
+}
+
+// PrepareFile reads and validates path without changing it.
+func PrepareFile(path string, maxBytes int64) (Prepared, error) {
+	if path == "" {
+		return Prepared{}, fmt.Errorf("prepare statement: path is empty")
+	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("stat statement %q: %w", path, err)
+		return Prepared{}, fmt.Errorf("stat statement %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return Prepared{}, fmt.Errorf("prepare statement %q: path is a directory", path)
 	}
 	original, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("read statement %q: %w", path, err)
+		return Prepared{}, fmt.Errorf("read statement %q: %w", path, err)
 	}
 	output, err := Statement(original, maxBytes)
 	if err != nil {
-		return fmt.Errorf("compact statement %q: %w", path, err)
+		return Prepared{}, fmt.Errorf("compact statement %q: %w", path, err)
 	}
+	return Prepared{Path: path, Mode: info.Mode(), Data: output}, nil
+}
 
-	directory := filepath.Dir(path)
-	temporary, err := os.CreateTemp(directory, "."+filepath.Base(path)+".tmp-*")
+// File compacts path and atomically replaces it after the replacement has
+// been completely written, synchronized, and closed.
+func File(path string, maxBytes int64) error {
+	prepared, err := PrepareFile(path, maxBytes)
 	if err != nil {
-		return fmt.Errorf("create temporary statement for %q: %w", path, err)
+		return err
 	}
-	temporaryPath := temporary.Name()
-	replaced := false
-	defer func() {
-		if !replaced {
-			_ = temporary.Close()
-			_ = os.Remove(temporaryPath)
-		}
-	}()
+	return CommitFiles([]Prepared{prepared})
+}
 
-	if err := temporary.Chmod(info.Mode()); err != nil {
-		return fmt.Errorf("apply statement mode for %q: %w", path, err)
+type temporaryFile struct {
+	target string
+	path   string
+	file   *os.File
+	closed bool
+}
+
+// CommitFiles writes and synchronizes every prepared statement before
+// replacing any target. A filesystem failure during a sequence of renames
+// cannot be transactionally rolled back, but semantic validation failures
+// occur during PrepareFile and therefore cannot cause a partial replacement.
+func CommitFiles(prepared []Prepared) error {
+	if len(prepared) == 0 {
+		return fmt.Errorf("commit statements: no files")
 	}
-	if _, err := temporary.Write(output); err != nil {
-		return fmt.Errorf("write temporary statement for %q: %w", path, err)
+	seen := make(map[string]struct{}, len(prepared))
+	temporary := make([]temporaryFile, 0, len(prepared))
+	cleanup := func() {
+		for index := range temporary {
+			item := &temporary[index]
+			if item.file != nil && !item.closed {
+				_ = item.file.Close()
+			}
+			if item.path != "" {
+				_ = os.Remove(item.path)
+			}
+		}
 	}
-	if err := temporary.Sync(); err != nil {
-		return fmt.Errorf("sync temporary statement for %q: %w", path, err)
+
+	for _, item := range prepared {
+		if item.Path == "" {
+			cleanup()
+			return fmt.Errorf("commit statements: path is empty")
+		}
+		if _, ok := seen[item.Path]; ok {
+			cleanup()
+			return fmt.Errorf("commit statements: duplicate path %q", item.Path)
+		}
+		seen[item.Path] = struct{}{}
+
+		tempFile, err := os.CreateTemp(filepath.Dir(item.Path), "."+filepath.Base(item.Path)+".tmp-*")
+		if err != nil {
+			cleanup()
+			return fmt.Errorf("create temporary statement for %q: %w", item.Path, err)
+		}
+		current := temporaryFile{target: item.Path, path: tempFile.Name(), file: tempFile}
+		temporary = append(temporary, current)
+		if err := tempFile.Chmod(item.Mode); err != nil {
+			cleanup()
+			return fmt.Errorf("apply statement mode for %q: %w", item.Path, err)
+		}
+		written, err := tempFile.Write(item.Data)
+		if err != nil {
+			cleanup()
+			return fmt.Errorf("write temporary statement for %q: %w", item.Path, err)
+		}
+		if written != len(item.Data) {
+			cleanup()
+			return fmt.Errorf("write temporary statement for %q: %w", item.Path, io.ErrShortWrite)
+		}
+		if err := tempFile.Sync(); err != nil {
+			cleanup()
+			return fmt.Errorf("sync temporary statement for %q: %w", item.Path, err)
+		}
+		if err := tempFile.Close(); err != nil {
+			cleanup()
+			return fmt.Errorf("close temporary statement for %q: %w", item.Path, err)
+		}
+		temporary[len(temporary)-1].closed = true
+		temporary[len(temporary)-1].file = nil
 	}
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("close temporary statement for %q: %w", path, err)
+
+	for index := range temporary {
+		item := &temporary[index]
+		if err := os.Rename(item.path, item.target); err != nil {
+			cleanup()
+			return fmt.Errorf("rename temporary statement for %q: %w", item.target, err)
+		}
+		item.path = ""
 	}
-	if err := os.Rename(temporaryPath, path); err != nil {
-		return fmt.Errorf("rename temporary statement for %q: %w", path, err)
-	}
-	replaced = true
 	return nil
 }
 
