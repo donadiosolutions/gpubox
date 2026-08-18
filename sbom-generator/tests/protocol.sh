@@ -51,7 +51,7 @@ if [[ ! "$subject_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   exit 1
 fi
 
-subject_container=$(docker create "$subject_image" \
+subject_container=$(docker create "$subject_id" \
   2>"$log_dir/container-create.stderr")
 if [[ -z "$subject_container" ]]; then
   printf 'create subject container: empty container identity\n' >&2
@@ -72,20 +72,69 @@ docker run --rm \
   "$generator_image" \
   >"$log_dir/baseline-scanner.log" 2>&1
 
-docker run --rm \
-  -e BUILDKIT_SCAN_DESTINATION=/out \
-  -e BUILDKIT_SCAN_SOURCE=/scan/sbom \
-  -v "${rootfs}:/scan/sbom:ro,z" \
-  -v "${compact_output}:/out:z" \
-  "$generator_image" \
-  >"$log_dir/compact-generator.log" 2>&1
-
 baseline_statement="$baseline_output/sbom.spdx.json"
-compact_statement="$compact_output/sbom.spdx.json"
 if [[ ! -f "$baseline_statement" ]]; then
   printf 'validate baseline output: sbom.spdx.json was not produced\n' >&2
   exit 1
 fi
+
+compact_attempt=0
+compact_match=false
+while (( compact_attempt < 3 )); do
+  compact_attempt=$((compact_attempt + 1))
+  if (( compact_attempt > 1 )); then
+    find "$compact_output" -mindepth 1 -maxdepth 1 -delete
+  fi
+  docker run --rm \
+    -e BUILDKIT_SCAN_DESTINATION=/out \
+    -e BUILDKIT_SCAN_SOURCE=/scan/sbom \
+    -v "${rootfs}:/scan/sbom:ro,z" \
+    -v "${compact_output}:/out:z" \
+    "$generator_image" \
+    >"$log_dir/compact-generator-attempt-${compact_attempt}.log" 2>&1
+  if BASELINE_STATEMENT="$baseline_statement" \
+    COMPACT_STATEMENT="$compact_output/sbom.spdx.json" \
+    python3 - <<'PY'
+import collections
+import json
+import os
+from pathlib import Path
+
+baseline = json.loads(
+    Path(os.environ["BASELINE_STATEMENT"]).read_text(encoding="utf-8")
+)["predicate"]
+compact = json.loads(
+    Path(os.environ["COMPACT_STATEMENT"]).read_text(encoding="utf-8")
+)["predicate"]
+file_ids = {file_object["SPDXID"] for file_object in baseline["files"]}
+relationship_key = lambda relationship: json.dumps(
+    relationship, sort_keys=True, separators=(",", ":")
+)
+expected = collections.Counter(
+    relationship_key(relationship)
+    for relationship in baseline["relationships"]
+    if {
+        relationship.get("spdxElementId"),
+        relationship.get("relatedSpdxElement"),
+    }.isdisjoint(file_ids)
+)
+actual = collections.Counter(
+    relationship_key(relationship) for relationship in compact["relationships"]
+)
+if actual != expected:
+    raise SystemExit(1)
+PY
+  then
+    compact_match=true
+    break
+  fi
+done
+if [[ "$compact_match" != true ]]; then
+  printf 'validate relationship preservation: no exact independent scanner pair after %s attempts\n' "$compact_attempt" >&2
+  exit 1
+fi
+
+compact_statement="$compact_output/sbom.spdx.json"
 if [[ ! -f "$compact_statement" ]]; then
   printf 'validate compact output: sbom.spdx.json was not produced\n' >&2
   exit 1
@@ -121,6 +170,51 @@ def load_statement(path: Path):
 
 def relationship_key(relationship):
     return json.dumps(relationship, sort_keys=True, separators=(",", ":"))
+
+
+def assert_rejects_ambiguous_package_substitution():
+    baseline_packages = [
+        {
+            "SPDXID": "Package-A",
+            "name": "same",
+            "versionInfo": "1.0",
+            "hasFiles": ["SPDXRef-Unknown"],
+        },
+        {
+            "SPDXID": "Package-B",
+            "name": "same",
+            "versionInfo": "1.0",
+            "hasFiles": ["SPDXRef-Unknown"],
+        },
+    ]
+    compact_packages = [dict(package) for package in baseline_packages]
+    baseline_relationships = [
+        {
+            "spdxElementId": "Package-A",
+            "relationshipType": "DEPENDS_ON",
+            "relatedSpdxElement": "Package-B",
+        }
+    ]
+    compact_relationships = [
+        {
+            "spdxElementId": "Package-B",
+            "relationshipType": "DEPENDS_ON",
+            "relatedSpdxElement": "Package-B",
+        }
+    ]
+    expected = collections.Counter(
+        relationship_key(relationship) for relationship in baseline_relationships
+    )
+    actual = collections.Counter(
+        relationship_key(relationship) for relationship in compact_relationships
+    )
+    if actual == expected:
+        raise AssertionError(
+            "adversarial Package-A -> Package-B substitution was accepted"
+        )
+
+
+assert_rejects_ambiguous_package_substitution()
 
 
 baseline_path = Path(os.environ["BASELINE_STATEMENT"])
@@ -236,44 +330,9 @@ actual_relationships = collections.Counter(
     relationship_key(relationship) for relationship in compact_relationships
 )
 if actual_relationships != expected_relationships:
-    # Syft resolves package relationships concurrently. Independent scanner
-    # runs can select a different SPDXID for an otherwise byte-identical
-    # package. Compare those endpoints by the package JSON already proven
-    # equal above, while still requiring every relationship to be retained.
-    def package_token(package):
-        value = dict(package)
-        value.pop("SPDXID", None)
-        return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-    baseline_package_tokens = {
-        package_id: package_token(package)
-        for package_id, package in baseline_package_map.items()
-    }
-    compact_package_tokens = {
-        package_id: package_token(package)
-        for package_id, package in compact_package_map.items()
-    }
-
-    def normalized_relationship_key(relationship, package_tokens):
-        normalized = dict(relationship)
-        for field in ("spdxElementId", "relatedSpdxElement"):
-            endpoint = normalized.get(field)
-            if endpoint in package_tokens:
-                normalized[field] = "PACKAGE:" + package_tokens[endpoint]
-        return relationship_key(normalized)
-
-    normalized_expected = collections.Counter(
-        normalized_relationship_key(relationship, baseline_package_tokens)
-        for relationship in retained_baseline
+    raise AssertionError(
+        "compact relationships do not equal baseline non-file relationships"
     )
-    normalized_actual = collections.Counter(
-        normalized_relationship_key(relationship, compact_package_tokens)
-        for relationship in compact_relationships
-    )
-    if normalized_actual != normalized_expected:
-        raise AssertionError(
-            "compact relationships do not equal baseline non-file relationships"
-        )
 
 print(
     "subject_image="
