@@ -20,6 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Test SBOM generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sbom-generator
+          go test ./...
+          CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' \
+            -o /tmp/gpubox-sbom-generator ./cmd/gpubox-sbom-generator
+
       - name: Validate release script syntax
         shell: bash
         run: |
