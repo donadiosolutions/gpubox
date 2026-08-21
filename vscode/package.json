@@ -6,8 +6,8 @@
   "license": "MIT",
   "dependencies": {
     "@donadiosolutions/lcm": "1.4.3",
-    "@openai/codex": "0.147.0",
-    "firecrawl-cli": "1.20.0",
+    "@openai/codex": "0.149.0",
+    "firecrawl-cli": "1.23.1",
     "sfw": "2.0.6",
     "socket": "1.1.158"
   },
