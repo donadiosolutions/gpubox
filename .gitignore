@@ -30,6 +30,7 @@ __pycache__/
 *.pyc
 node_modules/
 .venv/
+sbom-generator/bin/
 
 # Supply-chain tooling outputs
 *.sbom
