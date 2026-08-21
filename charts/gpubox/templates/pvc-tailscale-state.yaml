@@ -1,0 +1,25 @@
+{{- if and .Values.tailscale.enabled (not .Values.tailscale.state.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "gpubox.tailscaleStateClaimName" . }}
+  labels:
+    {{- include "gpubox.labels" . | nindent 4 }}
+    {{- with .Values.tailscale.state.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.tailscale.state.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.tailscale.state.accessModes | nindent 4 }}
+  volumeMode: {{ .Values.tailscale.state.volumeMode }}
+  {{- if .Values.tailscale.state.storageClass }}
+  storageClassName: {{ .Values.tailscale.state.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.tailscale.state.size | quote }}
+{{- end }}

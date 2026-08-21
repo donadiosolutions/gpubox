@@ -41,6 +41,9 @@ This repository contains two main pieces:
   the current `uname -r` only when needed.
 - **GPU scheduling**: configure `resources.limits.nvidia.com/gpu` and node
   selection to land on GPU nodes.
+- **Optional Tailnet identity**: enable a pinned, privileged Tailscale native
+  sidecar for direct inbound and outbound Tailnet connectivity, MagicDNS, and
+  accepted subnet routes. Its node state lives on a dedicated PVC.
 
 ## Security note (read this)
 
@@ -50,6 +53,8 @@ powerful and dangerous:
 - **Privileged containers** can fully control the host.
 - **hostPID** (if enabled) allows visibility into host processes.
 - **hostPath** mounts (if enabled) can expose the host filesystem.
+- **Tailscale kernel mode** (if enabled) adds another privileged container
+  that changes the Pod network namespace's routes, firewall, and DNS state.
 
 Use dedicated namespaces, tight RBAC, and (if applicable) Pod Security Admission
 labels appropriate for privileged workloads.
@@ -122,6 +127,42 @@ helm upgrade --install gpubox ./charts/gpubox \
   --namespace gpubox \
   -f values.ssh.yaml
 ```
+
+### Connect the Pod to a Tailnet
+
+The chart can add an optional Tailscale identity without replacing the VS Code
+tunnel. It uses a privileged Kubernetes-native sidecar in kernel mode, so the
+gpubox process can accept inbound Tailnet connections and transparently reach
+Tailnet IPs and accepted subnet routes without proxy environment variables.
+
+Prerequisites include Kubernetes 1.29 or newer with `SidecarContainers`
+enabled, a privileged namespace, a non-ephemeral AuthKey, suitable Tailnet
+grants, and a storage class for the state PVC. Create an AuthKey Secret and
+enable the feature:
+
+```bash
+kubectl -n gpubox create secret generic gpubox-tailscale-auth \
+  --from-literal=TS_AUTHKEY='tskey-auth-...'
+
+helm upgrade --install gpubox ./charts/gpubox \
+  --namespace gpubox \
+  --set tailscale.enabled=true \
+  --set tailscale.authKey.existingSecret=gpubox-tailscale-auth
+```
+
+The chart also accepts `tailscale.authKey.value`, but inline keys are retained
+in Helm values and release history. Prefer an existing Secret. The chart
+supports AuthKey authentication only and does not grant the Pod Kubernetes API
+permissions for state storage.
+
+MagicDNS takeover is Pod-wide. Before enabling the sidecar, add a restricted
+Tailnet nameserver for `svc.cluster.local` pointing at the cluster's CoreDNS
+Service IP; otherwise Kubernetes service lookups can fail. Also verify that no
+accepted Tailnet route overlaps the cluster Pod or Service CIDRs. The chart
+cannot configure or verify these Tailnet-wide settings with an AuthKey.
+
+See the [chart-specific Tailscale guide](charts/gpubox/README.md#tailscale-sidecar)
+for split-DNS, route, state, key-lifecycle, and validation details.
 
 ### Typical GPU pinning (example)
 

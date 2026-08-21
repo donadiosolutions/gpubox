@@ -88,6 +88,14 @@ When values.image.digest is set, render <repository>:<tag>@<digest>.
 {{- end -}}
 
 {{/*
+Tailscale image reference. The enabled-mode validation requires both an exact
+tag and digest, so this helper always emits repository:tag@digest.
+*/}}
+{{- define "gpubox.tailscaleImageRef" -}}
+{{- printf "%s:%s@%s" .Values.tailscale.image.repository .Values.tailscale.image.tag .Values.tailscale.image.digest -}}
+{{- end -}}
+
+{{/*
 PVC names.
 */}}
 {{- define "gpubox.homeClaimName" -}}
@@ -114,6 +122,14 @@ PVC names.
 {{- end -}}
 {{- end -}}
 
+{{- define "gpubox.tailscaleStateClaimName" -}}
+{{- if .Values.tailscale.state.existingClaim -}}
+{{- .Values.tailscale.state.existingClaim -}}
+{{- else -}}
+{{- printf "%s-tailscale-state" (include "gpubox.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
 {{/*
 SSH authorized_keys ConfigMap name.
 */}}
@@ -122,6 +138,17 @@ SSH authorized_keys ConfigMap name.
 {{- .Values.ssh.existingAuthorizedKeysConfigMap -}}
 {{- else -}}
 {{- printf "%s-ssh-authorized-keys" (include "gpubox.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Tailscale AuthKey Secret name.
+*/}}
+{{- define "gpubox.tailscaleAuthSecretName" -}}
+{{- if .Values.tailscale.authKey.existingSecret -}}
+{{- .Values.tailscale.authKey.existingSecret -}}
+{{- else -}}
+{{- printf "%s-tailscale-auth" (include "gpubox.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
