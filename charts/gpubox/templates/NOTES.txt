@@ -16,3 +16,32 @@ PVCs (if enabled):
   {{- if .Values.persistence.tmp.enabled }}
   - {{ include "gpubox.tmpClaimName" . }}
   {{- end }}
+  {{- if .Values.tailscale.enabled }}
+  - {{ include "gpubox.tailscaleStateClaimName" . }} (Tailscale node identity)
+  {{- end }}
+
+{{- if .Values.tailscale.enabled }}
+
+Tailscale native sidecar:
+  - Requires Kubernetes 1.29+ with the SidecarContainers feature enabled.
+  - Tailnet hostname: {{ default (printf "%s-0" (include "gpubox.fullname" .)) .Values.tailscale.hostname }}
+  - State claim: {{ include "gpubox.tailscaleStateClaimName" . }}
+  - AuthKey Secret: {{ include "gpubox.tailscaleAuthSecretName" . }} (key {{ .Values.tailscale.authKey.secretKey }})
+  {{- if .Values.tailscale.authKey.value }}
+  - WARNING: the inline AuthKey is retained in Helm release history. Prefer an existing Secret.
+  {{- end }}
+
+Check sidecar status:
+  kubectl -n {{ .Release.Namespace }} exec {{ include "gpubox.fullname" . }}-0 -c tailscale -- tailscale status
+
+Split MagicDNS preflight (the chart cannot change Tailnet DNS with an AuthKey):
+  1. Discover the cluster DNS service IP:
+     kubectl get svc -n kube-system kube-dns -o jsonpath='{.spec.clusterIP}'
+  2. In the Tailscale DNS admin page, add a restricted nameserver:
+     Domain: svc.cluster.local
+     Nameserver: <CoreDNS ClusterIP>
+
+Before accepting routes, verify that Tailnet subnet routes do not overlap this
+cluster's Pod or Service CIDRs. Tailnet grants must also permit the required
+inbound and outbound traffic.
+{{- end }}

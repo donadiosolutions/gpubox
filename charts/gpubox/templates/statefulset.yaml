@@ -1,4 +1,94 @@
 {{- $sshAuthorizedKeysEnabled := or (gt (len .Values.ssh.authorizedKeys) 0) .Values.ssh.existingAuthorizedKeysConfigMap -}}
+{{- $tailscaleEnabled := .Values.tailscale.enabled -}}
+{{- if $tailscaleEnabled -}}
+{{- if ne .Values.tailscale.authKey.value (trim .Values.tailscale.authKey.value) -}}
+{{- fail "tailscale.authKey.value must not contain leading or trailing whitespace" -}}
+{{- end -}}
+{{- if ne .Values.tailscale.authKey.existingSecret (trim .Values.tailscale.authKey.existingSecret) -}}
+{{- fail "tailscale.authKey.existingSecret must not contain leading or trailing whitespace" -}}
+{{- end -}}
+{{- if ne .Values.tailscale.state.existingClaim (trim .Values.tailscale.state.existingClaim) -}}
+{{- fail "tailscale.state.existingClaim must not contain leading or trailing whitespace" -}}
+{{- end -}}
+{{- $inlineAuthKey := ne (trim .Values.tailscale.authKey.value) "" -}}
+{{- $existingAuthSecret := ne (trim .Values.tailscale.authKey.existingSecret) "" -}}
+{{- if eq $inlineAuthKey $existingAuthSecret -}}
+{{- fail "tailscale.enabled=true requires exactly one of tailscale.authKey.value or tailscale.authKey.existingSecret" -}}
+{{- end -}}
+{{- if semverCompare "<1.29-0" .Capabilities.KubeVersion.Version -}}
+{{- fail "tailscale.enabled=true requires Kubernetes 1.29 or newer with the SidecarContainers feature enabled" -}}
+{{- end -}}
+{{- if ne (int .Values.replicaCount) 1 -}}
+{{- fail "tailscale.enabled=true requires replicaCount=1 because the managed state PVC cannot be shared" -}}
+{{- end -}}
+{{- if .Values.pod.hostNetwork -}}
+{{- fail "tailscale.enabled=true is incompatible with pod.hostNetwork=true" -}}
+{{- end -}}
+{{- if .Values.serviceAccount.automountServiceAccountToken -}}
+{{- fail "tailscale.enabled=true requires serviceAccount.automountServiceAccountToken=false" -}}
+{{- end -}}
+{{- if or (eq (trim .Values.tailscale.image.repository) "") (eq (trim .Values.tailscale.image.tag) "") -}}
+{{- fail "tailscale.enabled=true requires non-empty tailscale.image.repository and tailscale.image.tag" -}}
+{{- end -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.tailscale.image.digest) -}}
+{{- fail "tailscale.enabled=true requires tailscale.image.digest to be a sha256 digest" -}}
+{{- end -}}
+{{- if not .Values.tailscale.securityContext.privileged -}}
+{{- fail "tailscale.enabled=true requires tailscale.securityContext.privileged=true" -}}
+{{- end -}}
+{{- if not .Values.tailscale.sysctl.securityContext.privileged -}}
+{{- fail "tailscale.enabled=true requires tailscale.sysctl.securityContext.privileged=true" -}}
+{{- end -}}
+{{- $reservedTailscaleEnv := dict "POD_NAME" true "TS_AUTHKEY" true "TS_CLIENT_ID" true "TS_CLIENT_SECRET" true "TS_ID_TOKEN" true "TS_AUDIENCE" true "TS_KUBE_SECRET" true "TS_STATE_DIR" true "TS_USERSPACE" true "TS_ACCEPT_DNS" true "TS_AUTH_ONCE" true "TS_HOSTNAME" true "TS_EXTRA_ARGS" true "TS_TAILSCALED_EXTRA_ARGS" true "TS_ENABLE_HEALTH_CHECK" true "TS_LOCAL_ADDR_PORT" true "TS_ROUTES" true "TS_DEST_IP" true "TS_TAILNET_TARGET_IP" true "TS_TAILNET_TARGET_FQDN" true "TS_SOCKS5_SERVER" true "TS_OUTBOUND_HTTP_PROXY_LISTEN" true "TS_SERVE_CONFIG" true "TS_SOCKET" true -}}
+{{- range .Values.tailscale.extraEnv -}}
+{{- $envName := default "" (get . "name") -}}
+{{- if hasKey $reservedTailscaleEnv $envName -}}
+{{- fail (printf "tailscale.extraEnv cannot override chart-managed or unsupported authentication variable %s" $envName) -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.tailscale.extraArgs -}}
+{{- if regexMatch "[[:space:]]" . -}}
+{{- fail (printf "tailscale.extraArgs entries must each contain one whitespace-free flag: %s" .) -}}
+{{- end -}}
+{{- if regexMatch "^-{1,2}(accept-dns|accept-routes|advertise-connector|advertise-exit-node|advertise-routes|audience|auth-key|client-id|client-secret|exit-node|exit-node-allow-lan-access|force-reauth|hostname|id-token|login-server|netfilter-mode|qr|qr-format|reset|shields-up|snat-subnet-routes|socket|ssh|state|stateful-filtering|tun)(=|$)" . -}}
+{{- fail (printf "tailscale.extraArgs cannot override chart-managed or unsupported flag %s" .) -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.initContainers -}}
+{{- if kindIs "map" . -}}
+{{- if or (eq (default "" (get . "name")) "tailscale") (eq (default "" (get . "name")) "tailscale-sysctl") -}}
+{{- fail (printf "initContainers cannot use managed Tailscale container name %s" (get . "name")) -}}
+{{- end -}}
+{{- range (default (list) (get . "volumeMounts")) -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "name")) "tailscale-state") -}}
+{{- fail "initContainers cannot mount managed Tailscale state volume tailscale-state" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.sidecars -}}
+{{- if kindIs "map" . -}}
+{{- if or (eq (default "" (get . "name")) "tailscale") (eq (default "" (get . "name")) "tailscale-sysctl") -}}
+{{- fail (printf "sidecars cannot use managed Tailscale container name %s" (get . "name")) -}}
+{{- end -}}
+{{- range (default (list) (get . "volumeMounts")) -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "name")) "tailscale-state") -}}
+{{- fail "sidecars cannot mount managed Tailscale state volume tailscale-state" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.extraVolumes -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "name")) "tailscale-state") -}}
+{{- fail "extraVolumes cannot use managed Tailscale volume name tailscale-state" -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.extraVolumeMounts -}}
+{{- if and (kindIs "map" .) (eq (default "" (get . "name")) "tailscale-state") -}}
+{{- fail "extraVolumeMounts cannot mount managed Tailscale state volume tailscale-state" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- $customSharedMemory := false -}}
 {{- range .Values.extraVolumeMounts -}}
 {{- if and (kindIs "map" .) (eq (default "" (get . "mountPath")) "/dev/shm") -}}
@@ -50,6 +140,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
+      {{- if $tailscaleEnabled }}
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.pod.hostPID }}
       hostPID: true
       {{- end }}
@@ -88,8 +181,87 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or $sshAuthorizedKeysEnabled .Values.initContainers }}
+      {{- if or $tailscaleEnabled $sshAuthorizedKeysEnabled .Values.initContainers }}
       initContainers:
+        {{- if and $tailscaleEnabled .Values.tailscale.acceptRoutes }}
+        - name: tailscale-sysctl
+          image: {{ include "gpubox.tailscaleImageRef" . | quote }}
+          imagePullPolicy: {{ .Values.tailscale.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.tailscale.sysctl.securityContext | nindent 12 }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              sysctl -w net.ipv4.ip_forward=1
+              if sysctl net.ipv6.conf.all.forwarding >/dev/null 2>&1; then
+                sysctl -w net.ipv6.conf.all.forwarding=1
+              fi
+          {{- with .Values.tailscale.sysctl.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        {{- if $tailscaleEnabled }}
+        - name: tailscale
+          image: {{ include "gpubox.tailscaleImageRef" . | quote }}
+          imagePullPolicy: {{ .Values.tailscale.image.pullPolicy }}
+          restartPolicy: Always
+          securityContext:
+            {{- toYaml .Values.tailscale.securityContext | nindent 12 }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gpubox.tailscaleAuthSecretName" . }}
+                  key: {{ .Values.tailscale.authKey.secretKey }}
+            - name: TS_KUBE_SECRET
+              value: ""
+            - name: TS_STATE_DIR
+              value: {{ .Values.tailscale.state.mountPath | quote }}
+            - name: TS_AUTH_ONCE
+              value: "true"
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_ACCEPT_DNS
+              value: {{ ternary "true" "false" .Values.tailscale.acceptDNS | quote }}
+            - name: TS_HOSTNAME
+              value: {{ default "$(POD_NAME)" .Values.tailscale.hostname | quote }}
+            - name: TS_EXTRA_ARGS
+              value: {{ concat (list (printf "--accept-routes=%t" .Values.tailscale.acceptRoutes) "--shields-up=false") .Values.tailscale.extraArgs | join " " | quote }}
+            - name: TS_ENABLE_HEALTH_CHECK
+              value: "true"
+            - name: TS_LOCAL_ADDR_PORT
+              value: "127.0.0.1:9002"
+            {{- with .Values.tailscale.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          startupProbe:
+            exec:
+              command:
+                - /usr/bin/wget
+                - -q
+                - --spider
+                - http://127.0.0.1:9002/healthz
+            initialDelaySeconds: {{ .Values.tailscale.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.tailscale.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.tailscale.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.tailscale.startupProbe.failureThreshold }}
+          volumeMounts:
+            - name: tailscale-state
+              mountPath: {{ .Values.tailscale.state.mountPath | quote }}
+              readOnly: false
+          {{- with .Values.tailscale.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
         {{- if $sshAuthorizedKeysEnabled }}
         - name: ssh-authorized-keys
           image: "{{ .Values.ssh.initContainer.image.repository }}:{{ .Values.ssh.initContainer.image.tag }}"
@@ -162,6 +334,11 @@ spec:
             items:
               - key: authorized_keys
                 path: authorized_keys
+        {{- end }}
+        {{- if $tailscaleEnabled }}
+        - name: tailscale-state
+          persistentVolumeClaim:
+            claimName: {{ include "gpubox.tailscaleStateClaimName" . }}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

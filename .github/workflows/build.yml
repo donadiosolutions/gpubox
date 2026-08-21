@@ -378,6 +378,9 @@ jobs:
       - name: Helm lint
         run: helm lint charts/gpubox
 
+      - name: Tailscale chart render tests
+        run: scripts/chart/tests/run.sh
+
       - name: Package chart
         id: package
         shell: bash
