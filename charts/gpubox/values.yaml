@@ -112,6 +112,56 @@ sharedMemory:
   enabled: true
   sizeLimit: 64Gi
 
+# Add a privileged, kernel-mode Tailscale native sidecar to the singleton Pod.
+tailscale:
+  enabled: false
+  image:
+    repository: ghcr.io/tailscale/tailscale
+    tag: "v1.102.2"
+    digest: "sha256:321ce041508c19079b57a28b6666c8d81ab0b08accc0a2585b3ab663d557ac24"
+    pullPolicy: IfNotPresent
+  authKey:
+    # Provide exactly one source when enabled. Inline values are retained in
+    # Helm release history; an existing Secret is safer for normal use.
+    value: ""
+    existingSecret: ""
+    secretKey: TS_AUTHKEY
+  # Empty uses the StatefulSet Pod name (for example, gpubox-0).
+  hostname: ""
+  acceptDNS: true
+  acceptRoutes: true
+  # One whitespace-free `tailscale up` flag per entry. Chart-managed flags
+  # cannot be overridden here.
+  extraArgs: []
+  # Chart-managed and alternative-authentication variables are rejected.
+  extraEnv: []
+  state:
+    existingClaim: ""
+    annotations: {}
+    labels: {}
+    storageClass: block
+    accessModes:
+      - ReadWriteOnce
+    volumeMode: Filesystem
+    size: 1Gi
+    mountPath: /var/lib/tailscale
+  securityContext:
+    privileged: true
+    allowPrivilegeEscalation: true
+    runAsUser: 0
+  resources: {}
+  startupProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 2
+    timeoutSeconds: 1
+    failureThreshold: 90
+  sysctl:
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      runAsUser: 0
+    resources: {}
+
 service:
   enabled: true
   annotations: {}
