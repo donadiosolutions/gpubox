@@ -199,6 +199,17 @@
     },
     {
       "customType": "regex",
+      "description": "Tailscale image tag + digest",
+      "managerFilePatterns": ["/^charts\\/gpubox\\/values\\.yaml$/"],
+      "matchStrings": [
+        "    repository: (?<depName>ghcr\\.io/tailscale/tailscale)\\n    tag: \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"\\n    digest: \"(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "    repository: {{{depName}}}\n    tag: \"{{{newValue}}}\"\n    digest: \"{{{newDigest}}}\""
+    },
+    {
+      "customType": "regex",
       "description": "Sync Helm chart appVersion vscodecli-* to VS Code CLI",
       "managerFilePatterns": ["/^charts\\/gpubox\\/Chart\\.yaml$/"],
       "matchStrings": [
@@ -243,6 +254,18 @@
       "matchPackageNames": ["busybox"],
       "sourceUrl": "https://busybox.net/",
       "changelogUrl": "https://busybox.net/news.html"
+    },
+    {
+      "matchManagers": ["helm-values"],
+      "matchPackageNames": ["ghcr.io/tailscale/tailscale"],
+      "enabled": false
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/tailscale/tailscale"],
+      "pinDigests": true,
+      "sourceUrl": "https://github.com/tailscale/tailscale",
+      "changelogUrl": "https://tailscale.com/changelog"
     },
     {
       "matchDatasources": ["custom.vscodeCliStable", "custom.vscodeCliStableWithShaBlock"],
