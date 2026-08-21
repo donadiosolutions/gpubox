@@ -41,11 +41,26 @@ jobs:
           base_sha=""
           head_sha=""
           base_label=""
+          comparison_fallback=""
 
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
             base_label="pull request base"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            head_sha="$(git rev-parse HEAD)"
+            if git rev-parse --verify "origin/main^{commit}" >/dev/null 2>&1; then
+              if merge_base="$(git merge-base origin/main "${head_sha}" 2>/dev/null)"; then
+                base_sha="${merge_base}"
+                base_label="workflow-dispatch merge base (origin/main)"
+              else
+                comparison_fallback="origin/main has no merge base with the dispatched head; rebuilt defensively."
+                base_label="workflow-dispatch fallback (merge-base unavailable)"
+              fi
+            else
+              comparison_fallback="origin/main is unavailable; rebuilt defensively."
+              base_label="workflow-dispatch fallback (origin/main unavailable)"
+            fi
           elif [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             head_sha="$(git rev-parse HEAD)"
             previous_tag="$(git tag -l 'v*' --sort=-version:refname | grep -Fxv "${GITHUB_REF_NAME}" | head -n 1 || true)"
@@ -68,6 +83,7 @@ jobs:
           changed="false"
           changed_vscode_files=()
           effective_vscode_files=()
+          changed_generator_files=()
           ignored_vscode_records=()
           ignore_files=()
 
@@ -81,40 +97,68 @@ jobs:
           if [[ -z "${base_sha}" ]]; then
             # No comparison base (for example, root commit); build defensively.
             changed="true"
+            if [[ -z "${comparison_fallback}" ]]; then
+              comparison_fallback="No comparison base was available; rebuilt defensively."
+            fi
+          elif ! git rev-parse --verify "${base_sha}^{commit}" >/dev/null 2>&1 || \
+            ! git rev-parse --verify "${head_sha}^{commit}" >/dev/null 2>&1; then
+            changed="true"
+            comparison_fallback="The comparison base or head was unavailable; rebuilt defensively."
           else
-            # Any effective change in the image build context (./vscode) should
-            # trigger an image rebuild.
-            while IFS= read -r -d '' path; do
-              changed_vscode_files+=("${path}")
-            done < <(git diff --name-only -z "${base_sha}" "${head_sha}" -- 'vscode/')
+            vscode_diff_file="$(mktemp)"
+            generator_diff_file="$(mktemp)"
+            trap 'rm -f -- "${vscode_diff_file}" "${generator_diff_file}"' EXIT
+            diff_failed="false"
 
-            if [[ ${#changed_vscode_files[@]} -gt 0 ]]; then
-              for path in "${changed_vscode_files[@]}"; do
-                rel_path="${path#vscode/}"
-
-                # Safety: only evaluate paths in the vscode context.
-                if [[ "${rel_path}" == "${path}" ]]; then
-                  continue
-                fi
-
-                ignored_by_any="false"
-                for ignore_file in "${ignore_files[@]}"; do
-                  ignore_file_abs="${GITHUB_WORKSPACE}/${ignore_file}"
-                  if printf '%s\n' "${rel_path}" | git -c core.excludesfile="${ignore_file_abs}" check-ignore --no-index --stdin >/dev/null; then
-                    ignored_by_any="true"
-                    ignored_vscode_records+=("${path} <= ${ignore_file}")
-                    break
-                  fi
-                done
-
-                if [[ "${ignored_by_any}" != "true" ]]; then
-                  effective_vscode_files+=("${path}")
-                fi
-              done
+            # Any effective change in the image build context (./vscode) or
+            # any change in the generator context should trigger a rebuild.
+            if ! git diff --name-only -z "${base_sha}" "${head_sha}" -- 'vscode/' >"${vscode_diff_file}"; then
+              diff_failed="true"
+            fi
+            if ! git diff --name-only -z "${base_sha}" "${head_sha}" -- 'sbom-generator/' >"${generator_diff_file}"; then
+              diff_failed="true"
             fi
 
-            if [[ ${#effective_vscode_files[@]} -gt 0 ]]; then
+            if [[ "${diff_failed}" == "true" ]]; then
               changed="true"
+              comparison_fallback="The comparison diff could not be resolved; rebuilt defensively."
+            else
+              while IFS= read -r -d '' path; do
+                changed_vscode_files+=("${path}")
+              done <"${vscode_diff_file}"
+
+              while IFS= read -r -d '' path; do
+                changed_generator_files+=("${path}")
+              done <"${generator_diff_file}"
+
+              if [[ ${#changed_vscode_files[@]} -gt 0 ]]; then
+                for path in "${changed_vscode_files[@]}"; do
+                  rel_path="${path#vscode/}"
+
+                  # Safety: only evaluate paths in the vscode context.
+                  if [[ "${rel_path}" == "${path}" ]]; then
+                    continue
+                  fi
+
+                  ignored_by_any="false"
+                  for ignore_file in "${ignore_files[@]}"; do
+                    ignore_file_abs="${GITHUB_WORKSPACE}/${ignore_file}"
+                    if printf '%s\n' "${rel_path}" | git -c core.excludesfile="${ignore_file_abs}" check-ignore --no-index --stdin >/dev/null; then
+                      ignored_by_any="true"
+                      ignored_vscode_records+=("${path} <= ${ignore_file}")
+                      break
+                    fi
+                  done
+
+                  if [[ "${ignored_by_any}" != "true" ]]; then
+                    effective_vscode_files+=("${path}")
+                  fi
+                done
+              fi
+
+              if [[ ${#effective_vscode_files[@]} -gt 0 || ${#changed_generator_files[@]} -gt 0 ]]; then
+                changed="true"
+              fi
             fi
           fi
 
@@ -159,6 +203,19 @@ jobs:
             else
               echo "- Effective context changes (trigger rebuild): \`<none>\`"
             fi
+            if [[ ${#changed_generator_files[@]} -gt 0 ]]; then
+              echo "- Generator changes (trigger rebuild):"
+              for path in "${changed_generator_files[@]}"; do
+                echo "  - \`${path}\`"
+              done
+            else
+              echo "- Generator changes (trigger rebuild): \`<none>\`"
+            fi
+            if [[ -n "${comparison_fallback}" ]]; then
+              echo "- Comparison fallback: \`${comparison_fallback}\`"
+            else
+              echo "- Comparison fallback: \`<none>\`"
+            fi
             echo "- Rebuild required: \`${changed}\`"
           } >>"$GITHUB_STEP_SUMMARY"
 
@@ -190,6 +247,68 @@ jobs:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Test and compile compact SBOM generator
+        if: steps.changes.outputs.containerfile_changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sbom-generator
+          go test ./...
+          mkdir -p bin
+          CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' \
+            -o bin/gpubox-sbom-generator ./cmd/gpubox-sbom-generator
+
+      - name: SBOM generator metadata
+        id: sbom_generator_meta
+        if: steps.changes.outputs.containerfile_changed == 'true'
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/gpubox-sbom-generator
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build compact SBOM generator
+        id: sbom_generator
+        if: steps.changes.outputs.containerfile_changed == 'true'
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
+        with:
+          context: ./sbom-generator
+          file: ./sbom-generator/Containerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.sbom_generator_meta.outputs.tags }}
+          sbom: generator=docker/buildkit-syft-scanner@sha256:79e7b013cbec16bbb436f312819a49a4a57752b2270c1a9332ae1a10fcc82a68
+          provenance: mode=max
+
+      - name: Validate compact SBOM generator digest
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ steps.sbom_generator.outputs.digest }}" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+      - name: Summarize compact SBOM generator publication
+        if: github.event_name != 'pull_request' && steps.changes.outputs.containerfile_changed == 'true'
+        env:
+          GENERATOR_DIGEST: ${{ steps.sbom_generator.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          generator_ref="ghcr.io/${GITHUB_REPOSITORY_OWNER}/gpubox-sbom-generator@${GENERATOR_DIGEST}"
+          upstream_scanner_digest="sha256:79e7b013cbec16bbb436f312819a49a4a57752b2270c1a9332ae1a10fcc82a68"
+
+          {
+            echo "### Compact SBOM Generator Publication"
+            echo
+            echo "- Generator manifest digest: \`${GENERATOR_DIGEST}\`"
+            echo "- Immutable GHCR reference: \`${generator_ref}\`"
+            echo "- Upstream Syft scanner digest: \`${upstream_scanner_digest}\`"
+            echo "- The generator SBOM uses the upstream Syft scanner; the gpubox SBOM uses the newly published compact generator."
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Docker metadata
         id: meta
@@ -233,7 +352,7 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          sbom: true
+          sbom: generator=ghcr.io/${{ github.repository_owner }}/gpubox-sbom-generator@${{ steps.sbom_generator.outputs.digest }}
           provenance: mode=max
           build-args: |
             OCI_AUTHORS=Bernardo Donadio <bernardo@donadio.solutions>
