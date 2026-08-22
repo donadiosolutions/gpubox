@@ -1,4 +1,4 @@
-FROM docker/buildkit-syft-scanner@sha256:79e7b013cbec16bbb436f312819a49a4a57752b2270c1a9332ae1a10fcc82a68 AS upstream
+FROM docker/buildkit-syft-scanner@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9 AS upstream
 
 FROM scratch
 COPY --from=upstream /bin/syft-scanner /bin/syft-scanner
