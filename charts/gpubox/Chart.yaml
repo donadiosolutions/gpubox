@@ -3,7 +3,7 @@ name: gpubox
 description: Privileged GPU devbox StatefulSet (VS Code CLI tunnel)
 type: application
 version: 2.8.0
-appVersion: "26.04-vscodecli-1.134.0"
+appVersion: "26.04-vscodecli-1.136.1"
 keywords:
   - vscode
   - tunnel
