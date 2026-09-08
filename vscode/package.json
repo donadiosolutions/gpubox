@@ -9,7 +9,7 @@
     "@openai/codex": "0.153.4",
     "firecrawl-cli": "1.23.3",
     "sfw": "2.0.6",
-    "socket": "1.1.167"
+    "socket": "1.1.170"
   },
   "overrides": {
     "axios": "1.20.0",
