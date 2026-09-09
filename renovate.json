@@ -338,6 +338,13 @@
       "groupName": "Default uv tools"
     },
     {
+      "description": "pydantic-core is exact-pinned by pydantic; regenerate it with pydantic updates",
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": ["vscode/honcho-cli-requirements.txt"],
+      "matchPackageNames": ["pydantic-core"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["npm"],
       "matchFileNames": ["vscode/package.json"],
       "groupName": "Default npm tools"
