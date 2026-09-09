@@ -101,7 +101,7 @@ HTTP proxy configuration. The VS Code tunnel remains enabled and independent.
 
 ### Prerequisites
 
-- Kubernetes 1.29 or newer with the `SidecarContainers` feature enabled.
+- Kubernetes 1.34 or newer for the default managed DNS sidecars.
 - A namespace that permits privileged containers. Both the forwarding init
   container and Tailscale sidecar run privileged.
 - `replicaCount: 1` and `pod.hostNetwork: false`; the chart rejects other
@@ -166,30 +166,90 @@ tailscale:
 The claim must be writable and must not be shared with another tailscaled
 process.
 
-### Split MagicDNS
+### Automatic MagicDNS
 
-`tailscale.acceptDNS=true` lets the Pod use MagicDNS, but Tailscale then points
-the Pod's resolver at `100.100.100.100`. Configure restricted DNS before
-starting the sidecar so Kubernetes service names still reach CoreDNS.
+`dns.enabled=true` is the default, even when Tailscale is disabled. A non-root
+Python controller captures the Kubernetes resolver, materializes a static
+application resolver file, and starts CoreDNS before Tailscale and applications.
+The controller uses `/usr/bin/python3` from the selected gpubox image; custom
+images must provide it. No extra DNS values, API credentials, Kubernetes API
+permissions, or Tailnet restricted-DNS rule are required.
 
-Discover the resolver:
+`tailscale.acceptDNS=true` enables discovery of the active MagicDNS suffix.
+This changed in chart 2.9.0: the chart always sets `TS_ACCEPT_DNS=false`, and
+local CoreDNS owns forwarding instead of letting Tailscale rewrite the Pod
+resolver. The controller reads Tailscale status through its Unix socket as a
+non-root user; Tailscale denies that user settings mutations. The controller
+never receives the Tailscale state PVC or operator authority.
 
-```bash
-kubectl get svc -n kube-system kube-dns \
-  -o jsonpath='{.spec.clusterIP}'
+Names equal to or below the active suffix go to MagicDNS first. Everything
+else, including cluster services, site-local names, other tailnets, and PTR
+queries, goes to the original Kubernetes nameservers in their original order.
+MagicDNS transport failures, SERVFAIL, and REFUSED fall back to those cluster
+nameservers. Valid NXDOMAIN and NOERROR/NODATA answers are preserved. The
+forwarder's health-check name also stays inside the discovered suffix.
+
+The controller verifies the node's own A/AAAA record against its Tailscale
+addresses before activating the route. IPv6-only Tailscale nodes use
+`fd7a:115c:a1e0::53`; other nodes use `100.100.100.100`. Missing, disabled,
+invalid, or unavailable MagicDNS selects cluster-only routing. It reconciles
+every five seconds; the healthy-runtime configuration transition target is
+12 seconds, including bounded probing and `reload 2s 1s`. A configuration
+write is not proof of active routing; verify actual answers and CoreDNS logs.
+
+Search domains and resolver options are preserved. The chart adds no MagicDNS
+search suffix. Routing uses the absolute name on the DNS wire: an inherited
+search suffix can still cause a client's short name to expand into a tailnet
+name. CoreDNS cannot infer the original application input.
+
+The application resolver file is created once per Pod and mounted read-only.
+Only the directory-mounted Corefile changes dynamically. Controller restarts
+reuse the original resolver snapshot and application file. CoreDNS listens on
+loopback UDP/TCP 53, with Pod-reachable health/readiness on 8080/8181. Neither
+DNS nor health ports are published by a Service. A CoreDNS process failure can
+briefly interrupt DNS until Kubernetes restarts it; no secondary application
+nameserver bypasses the managed routing.
+
+The default controller and CoreDNS resource requests are each 10m CPU and
+32Mi memory, with a 128Mi memory limit and no CPU limit. Override them using
+`dns.controller.resources` and `dns.resources`. The controller image remains
+the application image; `dns.image` controls the digest-pinned CoreDNS image.
+The setup container initializes only the dedicated ephemeral DNS volume and
+does not change existing PVC ownership through a Pod-wide `fsGroup`.
+
+To retain the original application resolver instead:
+
+```yaml
+dns:
+  enabled: false
+tailscale:
+  acceptDNS: false
 ```
 
-In the Tailscale DNS admin page, add:
+Managed DNS rejects host networking, Kubernetes below 1.34, and conflicts with
+its container/volume names, resolver mounts, or reserved ports. User init
+containers and sidecars receive the managed resolver automatically; unrelated
+fields are preserved. Enabling Tailscale DNS acceptance with managed DNS
+disabled is rejected. Port conflicts not declared in the chart surface as
+startup failures. Existing Tailscale authentication startup gates still apply;
+MagicDNS availability does not determine controller liveness.
 
-```text
-Domain:     svc.cluster.local
-Nameserver: <CoreDNS ClusterIP>
-```
+### Upgrade and rollback
 
-For a custom Kubernetes cluster domain, use `svc.<cluster-domain>`. A single
-restricted entry cannot represent multiple clusters that use the same cluster
-domain with different CoreDNS Service IPs. The chart cannot edit or verify
-Tailnet DNS with an AuthKey.
+The default StatefulSet update strategy is `OnDelete`. A successful Helm
+upgrade changes the template but does not replace the running Pod.
+
+1. Retain any existing restricted Tailnet DNS rule while the old Pod runs.
+2. Upgrade the chart to 2.9.0.
+3. Explicitly recreate the Pod during an appropriate interruption window.
+4. Confirm `TS_ACCEPT_DNS=false` in the new Tailscale container, then verify
+   cluster DNS, site-local DNS, a MagicDNS FQDN, failure fallback, and retained
+   Tailscale node identity.
+5. Only then remove the old restricted-DNS rule if no other workload needs it.
+
+Before rollback and recreation of an old Pod, restore the Tailnet DNS rule
+required by the old chart, or explicitly disable its Tailscale DNS takeover.
+Do not remove a shared rule merely because this workload no longer needs it.
 
 ### Accepted-route safety
 
@@ -222,5 +282,5 @@ kubectl -n gpubox exec gpubox-0 -c gpubox -- \
 Also resolve a MagicDNS name and reach a Tailnet service from the gpubox
 container, then connect to port 22 from a permitted Tailnet device. Recreating
 the Pod should restore the same Tailscale identity while the state claim
-exists. There is intentionally no liveness probe: transient Tailnet health
-loss must not create a restart/re-registration loop.
+exists. There is intentionally no Tailscale liveness probe: transient Tailnet
+health loss must not create a restart/re-registration loop.

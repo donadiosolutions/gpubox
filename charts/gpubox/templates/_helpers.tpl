@@ -96,6 +96,13 @@ tag and digest, so this helper always emits repository:tag@digest.
 {{- end -}}
 
 {{/*
+CoreDNS image reference. Managed DNS requires both an exact tag and digest.
+*/}}
+{{- define "gpubox.dnsImageRef" -}}
+{{- printf "%s:%s@%s" .Values.dns.image.repository .Values.dns.image.tag .Values.dns.image.digest -}}
+{{- end -}}
+
+{{/*
 PVC names.
 */}}
 {{- define "gpubox.homeClaimName" -}}

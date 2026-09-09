@@ -1,0 +1,26 @@
+id	severity	package	fixed_version
+GO-2026-5932	UNSPECIFIED	golang.org/x/crypto@0.54.0	not fixed
+GHSA-gv9j-4w24-q7vx	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.6.6
+CVE-2022-2835	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	not fixed
+CVE-2022-2837	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	not fixed
+CVE-2023-30464	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	not fixed
+CVE-2026-84303	MEDIUM	google.golang.org/grpc@1.83.0	1.83.1
+CVE-2025-68151	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.0
+CVE-2024-0874	MEDIUM	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.11.2
+CVE-2026-84445	HIGH	google.golang.org/grpc@1.83.0	1.83.2
+CVE-2025-47950	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.12.2
+CVE-2026-26018	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.2
+CVE-2026-56854	HIGH	golang.org/x/crypto@0.54.0	0.55.0
+CVE-2026-56855	HIGH	golang.org/x/crypto@0.54.0	0.56.0
+CVE-2026-56864	HIGH	golang.org/x/mod@0.37.0	0.40.0
+CVE-2026-78662	HIGH	golang.org/x/crypto@0.54.0	0.56.0
+CVE-2026-26017	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.2
+CVE-2023-28452	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.11.0
+CVE-2026-33489	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.3
+CVE-2026-35579	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.3
+CVE-2026-56865	HIGH	golang.org/x/mod@0.37.0	0.40.0
+CVE-2026-32934	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.3
+CVE-2026-32936	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.3
+CVE-2026-33190	HIGH	github.com/coredns/coredns@0.0.0-20260819003913-427fc80ed9ca	1.14.3
+CVE-2026-73500	HIGH	go.etcd.io/etcd/client/pkg/v3@3.6.13	3.6.14
+CVE-2026-84304	HIGH	google.golang.org/grpc@1.83.0	1.83.1

@@ -34,14 +34,24 @@ Tailscale native sidecar:
 Check sidecar status:
   kubectl -n {{ .Release.Namespace }} exec {{ include "gpubox.fullname" . }}-0 -c tailscale -- tailscale status
 
-Split MagicDNS preflight (the chart cannot change Tailnet DNS with an AuthKey):
-  1. Discover the cluster DNS service IP:
-     kubectl get svc -n kube-system kube-dns -o jsonpath='{.spec.clusterIP}'
-  2. In the Tailscale DNS admin page, add a restricted nameserver:
-     Domain: svc.cluster.local
-     Nameserver: <CoreDNS ClusterIP>
-
 Before accepting routes, verify that Tailnet subnet routes do not overlap this
 cluster's Pod or Service CIDRs. Tailnet grants must also permit the required
 inbound and outbound traffic.
+{{- end }}
+
+{{- if .Values.dns.enabled }}
+
+Managed DNS (Kubernetes 1.34+):
+  - CoreDNS forwards the active MagicDNS suffix first to Tailscale; failures fall back to cluster DNS.
+  - All other names use the original Kubernetes resolver. Existing search domains are preserved.
+  - No new Tailnet restricted-DNS rule is required. TS_ACCEPT_DNS is always false.
+  - Custom gpubox images must provide /usr/bin/python3 for the non-root controller.
+  - A CoreDNS process restart can briefly interrupt DNS.
+
+OnDelete migration:
+  1. Retain any old restricted Tailnet DNS rule while the old Pod runs.
+  2. Upgrade, then explicitly recreate the Pod.
+  3. Verify cluster/site DNS, MagicDNS, fallback, and retained Tailscale identity.
+  4. Remove the old rule only after verification and only if no other workload needs it.
+Rollback: restore old Tailnet DNS requirements (or disable old DNS takeover) before recreating the old Pod.
 {{- end }}

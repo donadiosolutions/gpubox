@@ -1,0 +1,31 @@
+{
+  "image": "registry.k8s.io/coredns/coredns:v1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
+  "index": {
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "digest": "sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286"
+  },
+  "linux_amd64": {
+    "manifest": "sha256:2329f5f0e7e79fbe56dcdf11ecc4337ee2476bb251095bc275fe9461cb88a55b",
+    "config": "sha256:97efff2babf85310d6f87bd969ac64d7006bbbadb147c90579d68d57634750f4",
+    "binary_sha256": "67d7387acb5d58df2c884cd2f0a4a4815f6a6bb29b865a6ea5efa4e782d76faa",
+    "binary_version": "CoreDNS-1.14.7",
+    "go_version": "go1.26.6",
+    "module": "github.com/coredns/coredns@v0.0.0-20260819003913-427fc80ed9ca",
+    "vcs_revision": "427fc80ed9ca47f354585eb30a3f1332950856c4",
+    "vcs_modified": false
+  },
+  "github_release": {
+    "tag": "v1.14.7",
+    "target_commitish": "427fc80ed9ca47f354585eb30a3f1332950856c4",
+    "linux_amd64_archive_sha256": "9a09356438c6d9591cb80011a2a7a52f87fc3a113f6690e41f243f98b98faac9",
+    "archive_binary_matches_image_binary": true
+  },
+  "registry_attachments": {
+    "oci_referrers": 0,
+    "matching_attestation_tag": false,
+    "matching_sbom_tag": false,
+    "matching_legacy_cosign_signature_tag": true,
+    "signature_manifest_digest": "sha256:03a0c1dc2f36f8548a7199b31d73d9f88f1d32446b59e53677b24cfc352bbcd1",
+    "signature_verified": false
+  }
+}

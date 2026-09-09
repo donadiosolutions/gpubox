@@ -135,9 +135,9 @@ tunnel. It uses a privileged Kubernetes-native sidecar in kernel mode, so the
 gpubox process can accept inbound Tailnet connections and transparently reach
 Tailnet IPs and accepted subnet routes without proxy environment variables.
 
-Prerequisites include Kubernetes 1.29 or newer with `SidecarContainers`
-enabled, a privileged namespace, a non-ephemeral AuthKey, suitable Tailnet
-grants, and a storage class for the state PVC. Create an AuthKey Secret and
+Prerequisites include Kubernetes 1.34 or newer, a privileged namespace, a
+non-ephemeral AuthKey, suitable Tailnet grants, and a storage class for the
+state PVC. Create an AuthKey Secret and
 enable the feature:
 
 ```bash
@@ -155,14 +155,27 @@ in Helm values and release history. Prefer an existing Secret. The chart
 supports AuthKey authentication only and does not grant the Pod Kubernetes API
 permissions for state storage.
 
-MagicDNS takeover is Pod-wide. Before enabling the sidecar, add a restricted
-Tailnet nameserver for `svc.cluster.local` pointing at the cluster's CoreDNS
-Service IP; otherwise Kubernetes service lookups can fail. Also verify that no
-accepted Tailnet route overlaps the cluster Pod or Service CIDRs. The chart
-cannot configure or verify these Tailnet-wide settings with an AuthKey.
+A default-enabled local CoreDNS sidecar automatically discovers the active
+MagicDNS domain. Only that suffix goes to MagicDNS first; all other names use
+the original Kubernetes resolvers, including their site-local forwarding.
+Unavailable MagicDNS falls back to those cluster resolvers. No restricted
+Tailnet DNS rule or additional Helm DNS values are needed. The chart preserves
+existing search domains and adds no MagicDNS search suffix.
 
-See the [chart-specific Tailscale guide](charts/gpubox/README.md#tailscale-sidecar)
-for split-DNS, route, state, key-lifecycle, and validation details.
+`tailscale.acceptDNS` controls this local forwarding; Tailscale itself always
+runs with `TS_ACCEPT_DNS=false`. Without Tailscale, the DNS sidecar simply
+forwards to the cluster resolver. Verify that accepted Tailnet routes do not
+overlap Pod or Service CIDRs, since DNS forwarding cannot repair route overlap.
+
+Chart 2.9.0 adds a Python controller using the selected gpubox image. Custom
+images must provide `/usr/bin/python3`. To opt out of managed DNS, set
+`dns.enabled=false` and, if Tailscale is enabled, `tailscale.acceptDNS=false`.
+A CoreDNS process restart can briefly interrupt DNS until Kubernetes recovers it.
+
+For `OnDelete` upgrades, retain any old restricted-DNS rule until the Pod has
+been recreated and the new behavior verified. See the
+[chart-specific DNS and migration guide](charts/gpubox/README.md#automatic-magicdns)
+for configuration, migration, rollback, and validation details.
 
 ### Typical GPU pinning (example)
 

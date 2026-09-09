@@ -1,5 +1,120 @@
 {{- $sshAuthorizedKeysEnabled := or (gt (len .Values.ssh.authorizedKeys) 0) .Values.ssh.existingAuthorizedKeysConfigMap -}}
 {{- $tailscaleEnabled := .Values.tailscale.enabled -}}
+{{- $dnsEnabled := .Values.dns.enabled -}}
+{{- $dnsContainerNames := dict "dns-setup" true "dns-controller" true "dns" true -}}
+{{- $dnsVolumeNames := dict "gpubox-dns" true "gpubox-dns-controller" true "gpubox-tailscale-socket" true -}}
+{{- $dnsMountPaths := list "/etc/resolv.conf" "/var/run/gpubox-dns" "/run/gpubox-dns" "/opt/gpubox-dns" "/var/run/gpubox-tailscale" "/run/gpubox-tailscale" -}}
+{{- $dnsPorts := dict "53" true "8080" true "8181" true -}}
+{{- if $dnsEnabled -}}
+{{- if semverCompare "<1.34-0" .Capabilities.KubeVersion.Version -}}
+{{- fail "dns.enabled=true requires Kubernetes 1.34 or newer" -}}
+{{- end -}}
+{{- if .Values.pod.hostNetwork -}}
+{{- fail "dns.enabled=true is incompatible with pod.hostNetwork=true" -}}
+{{- end -}}
+{{- if .Values.serviceAccount.automountServiceAccountToken -}}
+{{- fail "dns.enabled=true requires serviceAccount.automountServiceAccountToken=false" -}}
+{{- end -}}
+{{- if hasKey .Values.podAnnotations "checksum/dns-controller" -}}
+{{- fail "podAnnotations cannot override managed annotation checksum/dns-controller" -}}
+{{- end -}}
+{{- if or (eq (trim .Values.dns.image.repository) "") (eq (trim .Values.dns.image.tag) "") -}}
+{{- fail "dns.enabled=true requires non-empty dns.image.repository and dns.image.tag" -}}
+{{- end -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.dns.image.digest) -}}
+{{- fail "dns.enabled=true requires dns.image.digest to be a sha256 digest" -}}
+{{- end -}}
+{{- if hasKey $dnsContainerNames (include "gpubox.name" .) -}}
+{{- fail (printf "application container cannot use managed DNS container name %s" (include "gpubox.name" .)) -}}
+{{- end -}}
+{{- range $containerKind := list "initContainers" "sidecars" -}}
+{{- range (get $.Values $containerKind) -}}
+{{- if kindIs "map" . -}}
+{{- $containerName := default "" (get . "name") -}}
+{{- if hasKey $dnsContainerNames $containerName -}}
+{{- fail (printf "%s cannot use managed DNS container name %s" $containerKind $containerName) -}}
+{{- end -}}
+{{- range (default (list) (get . "ports")) -}}
+{{- if and (kindIs "map" .) (hasKey $dnsPorts (toString (default 0 (get . "containerPort")))) -}}
+{{- fail (printf "%s cannot declare managed DNS port %v" $containerKind (get . "containerPort")) -}}
+{{- end -}}
+{{- end -}}
+{{- range (default (list) (get . "volumeMounts")) -}}
+{{- if kindIs "map" . -}}
+{{- $volumeName := default "" (get . "name") -}}
+{{- if hasKey $dnsVolumeNames $volumeName -}}
+{{- fail (printf "%s cannot mount managed DNS volume %s" $containerKind $volumeName) -}}
+{{- end -}}
+{{- $rawMountPath := default "" (get . "mountPath") -}}
+{{- $mountPath := clean $rawMountPath -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath "/etc/resolv.conf") (hasPrefix (printf "%s/" $mountPath) "/etc/resolv.conf")) -}}
+{{- fail (printf "%s cannot shadow managed resolver path /etc/resolv.conf" $containerKind) -}}
+{{- end -}}
+{{- range $managedPath := $dnsMountPaths -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath $managedPath) (hasPrefix (printf "%s/" $mountPath) $managedPath) (hasPrefix (printf "%s/" $managedPath) $mountPath)) -}}
+{{- fail (printf "%s cannot conflict with managed DNS mount path %s" $containerKind $rawMountPath) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.containerPorts -}}
+{{- if and (kindIs "map" .) (hasKey $dnsPorts (toString (default 0 (get . "containerPort")))) -}}
+{{- fail (printf "containerPorts cannot declare managed DNS port %v" (get . "containerPort")) -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.extraVolumes -}}
+{{- if and (kindIs "map" .) (hasKey $dnsVolumeNames (default "" (get . "name"))) -}}
+{{- fail (printf "extraVolumes cannot use managed DNS volume name %s" (get . "name")) -}}
+{{- end -}}
+{{- end -}}
+{{- range .Values.extraVolumeMounts -}}
+{{- if kindIs "map" . -}}
+{{- $volumeName := default "" (get . "name") -}}
+{{- if hasKey $dnsVolumeNames $volumeName -}}
+{{- fail (printf "extraVolumeMounts cannot mount managed DNS volume %s" $volumeName) -}}
+{{- end -}}
+{{- $rawMountPath := default "" (get . "mountPath") -}}
+{{- $mountPath := clean $rawMountPath -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath "/etc/resolv.conf") (hasPrefix (printf "%s/" $mountPath) "/etc/resolv.conf")) -}}
+{{- fail "extraVolumeMounts cannot shadow managed resolver path /etc/resolv.conf" -}}
+{{- end -}}
+{{- range $managedPath := $dnsMountPaths -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath $managedPath) (hasPrefix (printf "%s/" $mountPath) $managedPath) (hasPrefix (printf "%s/" $managedPath) $mountPath)) -}}
+{{- fail (printf "extraVolumeMounts cannot conflict with managed DNS mount path %s" $rawMountPath) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- range (list .Values.persistence.home .Values.persistence.transfer .Values.persistence.tmp .Values.persistence.hostRoot) -}}
+{{- if and (kindIs "map" .) (get . "enabled") -}}
+{{- $rawMountPath := default "" (get . "mountPath") -}}
+{{- $mountPath := clean $rawMountPath -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath "/etc/resolv.conf") (hasPrefix (printf "%s/" $mountPath) "/etc/resolv.conf")) -}}
+{{- fail (printf "persistence mount %s cannot shadow managed resolver path /etc/resolv.conf" $rawMountPath) -}}
+{{- end -}}
+{{- range $managedPath := $dnsMountPaths -}}
+{{- if and (ne $mountPath ".") (or (eq $mountPath "/") (eq $mountPath $managedPath) (hasPrefix (printf "%s/" $mountPath) $managedPath) (hasPrefix (printf "%s/" $managedPath) $mountPath)) -}}
+{{- fail (printf "persistence mount %s conflicts with managed DNS mount path" $rawMountPath) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $tailscaleEnabled -}}
+{{- $rawMountPath := $.Values.tailscale.state.mountPath -}}
+{{- $mountPath := clean $rawMountPath -}}
+{{- range $managedPath := $dnsMountPaths -}}
+{{- if or (eq $mountPath "/") (eq $mountPath $managedPath) (hasPrefix (printf "%s/" $mountPath) $managedPath) (hasPrefix (printf "%s/" $managedPath) $mountPath) -}}
+{{- fail (printf "tailscale.state.mountPath cannot conflict with managed DNS mount path %s" $rawMountPath) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if and $tailscaleEnabled .Values.tailscale.acceptDNS (not $dnsEnabled) -}}
+{{- fail "tailscale.acceptDNS=true requires dns.enabled=true" -}}
+{{- end -}}
 {{- if $tailscaleEnabled -}}
 {{- if ne .Values.tailscale.authKey.value (trim .Values.tailscale.authKey.value) -}}
 {{- fail "tailscale.authKey.value must not contain leading or trailing whitespace" -}}
@@ -50,7 +165,7 @@
 {{- if regexMatch "[[:space:]]" . -}}
 {{- fail (printf "tailscale.extraArgs entries must each contain one whitespace-free flag: %s" .) -}}
 {{- end -}}
-{{- if regexMatch "^-{1,2}(accept-dns|accept-routes|advertise-connector|advertise-exit-node|advertise-routes|audience|auth-key|client-id|client-secret|exit-node|exit-node-allow-lan-access|force-reauth|hostname|id-token|login-server|netfilter-mode|qr|qr-format|reset|shields-up|snat-subnet-routes|socket|ssh|state|stateful-filtering|tun)(=|$)" . -}}
+{{- if regexMatch "^-+(accept-dns|accept-routes|advertise-connector|advertise-exit-node|advertise-routes|audience|auth-key|client-id|client-secret|exit-node|exit-node-allow-lan-access|force-reauth|hostname|id-token|login-server|netfilter-mode|operator|qr|qr-format|reset|shields-up|snat-subnet-routes|socket|ssh|state|stateful-filtering|tun)(=|$)" . -}}
 {{- fail (printf "tailscale.extraArgs cannot override chart-managed or unsupported flag %s" .) -}}
 {{- end -}}
 {{- end -}}
@@ -135,12 +250,17 @@ spec:
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
+      {{- if or $dnsEnabled .Values.podAnnotations }}
       annotations:
+        {{- if $dnsEnabled }}
+        checksum/dns-controller: {{ .Files.Get "files/dns-controller.py" | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
     spec:
-      {{- if $tailscaleEnabled }}
+      {{- if or $dnsEnabled $tailscaleEnabled }}
       automountServiceAccountToken: false
       {{- end }}
       {{- if .Values.pod.hostPID }}
@@ -181,8 +301,164 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if or $tailscaleEnabled $sshAuthorizedKeysEnabled .Values.initContainers }}
+      {{- if or $dnsEnabled $tailscaleEnabled $sshAuthorizedKeysEnabled .Values.initContainers }}
       initContainers:
+        {{- if $dnsEnabled }}
+        - name: dns-setup
+          image: "{{ .Values.ssh.initContainer.image.repository }}:{{ .Values.ssh.initContainer.image.tag }}"
+          imagePullPolicy: {{ .Values.ssh.initContainer.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+            readOnlyRootFilesystem: true
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              mkdir -p /var/run/gpubox-dns
+              chmod 0750 /var/run/gpubox-dns
+              chown 65532:65532 /var/run/gpubox-dns
+          volumeMounts:
+            - name: gpubox-dns
+              mountPath: /var/run/gpubox-dns
+              readOnly: false
+        - name: dns-controller
+          image: {{ include "gpubox.imageRef" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          restartPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              if [ ! -x /usr/bin/python3 ]; then
+                echo "dns-controller: /usr/bin/python3 is required in the gpubox image" >&2
+                exit 127
+              fi
+              exec /usr/bin/python3 -I -B /opt/gpubox-dns/dns-controller.py run \
+                --state-dir /var/run/gpubox-dns \
+                --resolv-conf /etc/resolv.conf \
+                --tailscale-socket /var/run/gpubox-tailscale/tailscaled.sock \
+                --magicdns-enabled {{ ternary "true" "false" (and $tailscaleEnabled .Values.tailscale.acceptDNS) }}
+          startupProbe:
+            exec:
+              command:
+                - /usr/bin/python3
+                - -I
+                - -B
+                - /opt/gpubox-dns/dns-controller.py
+                - check-startup
+                - --state-dir
+                - /var/run/gpubox-dns
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 90
+          livenessProbe:
+            exec:
+              command:
+                - /usr/bin/python3
+                - -I
+                - -B
+                - /opt/gpubox-dns/dns-controller.py
+                - check-live
+                - --state-dir
+                - /var/run/gpubox-dns
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: gpubox-dns
+              mountPath: /var/run/gpubox-dns
+              readOnly: false
+            - name: gpubox-dns-controller
+              mountPath: /opt/gpubox-dns
+              readOnly: true
+            - name: gpubox-tailscale-socket
+              mountPath: /var/run/gpubox-tailscale
+              readOnly: true
+          resources:
+            {{- toYaml .Values.dns.controller.resources | nindent 12 }}
+        - name: dns
+          image: {{ include "gpubox.dnsImageRef" . | quote }}
+          imagePullPolicy: {{ .Values.dns.image.pullPolicy }}
+          restartPolicy: Always
+          args:
+            - -conf
+            - /etc/gpubox-dns/Corefile
+          ports:
+            - name: dns-udp
+              containerPort: 53
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+            - name: ready
+              containerPort: 8181
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            readOnlyRootFilesystem: true
+            runAsGroup: 65532
+            runAsNonRoot: true
+            runAsUser: 65532
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: 8181
+              scheme: HTTP
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8181
+              scheme: HTTP
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: gpubox-dns
+              mountPath: /etc/gpubox-dns
+              readOnly: true
+          resources:
+            {{- toYaml .Values.dns.resources | nindent 12 }}
+        {{- end }}
         {{- if and $tailscaleEnabled .Values.tailscale.acceptRoutes }}
         - name: tailscale-sysctl
           image: {{ include "gpubox.tailscaleImageRef" . | quote }}
@@ -230,7 +506,11 @@ spec:
             - name: TS_USERSPACE
               value: "false"
             - name: TS_ACCEPT_DNS
-              value: {{ ternary "true" "false" .Values.tailscale.acceptDNS | quote }}
+              value: "false"
+            {{- if $dnsEnabled }}
+            - name: TS_SOCKET
+              value: /var/run/gpubox-tailscale/tailscaled.sock
+            {{- end }}
             - name: TS_HOSTNAME
               value: {{ default "$(POD_NAME)" .Values.tailscale.hostname | quote }}
             - name: TS_EXTRA_ARGS
@@ -257,6 +537,11 @@ spec:
             - name: tailscale-state
               mountPath: {{ .Values.tailscale.state.mountPath | quote }}
               readOnly: false
+            {{- if $dnsEnabled }}
+            - name: gpubox-tailscale-socket
+              mountPath: /var/run/gpubox-tailscale
+              readOnly: false
+            {{- end }}
           {{- with .Values.tailscale.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -290,13 +575,32 @@ spec:
             - name: ssh-authorized-keys
               mountPath: /config
               readOnly: true
+            {{- if $dnsEnabled }}
+            - name: gpubox-dns
+              mountPath: /etc/resolv.conf
+              subPath: client-resolv.conf
+              readOnly: true
+            {{- end }}
           {{- with .Values.ssh.initContainer.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
         {{- end }}
-        {{- with .Values.initContainers }}
-        {{- toYaml . | nindent 8 }}
+        {{- range .Values.initContainers }}
+        {{- if and $dnsEnabled (kindIs "map" .) }}
+        {{- $container := deepCopy . }}
+        {{- $mounts := default (list) (get $container "volumeMounts") }}
+        {{- $_ := set $container "volumeMounts" (append $mounts (dict "name" "gpubox-dns" "mountPath" "/etc/resolv.conf" "subPath" "client-resolv.conf" "readOnly" true)) }}
+        {{- if hasKey $container "name" }}
+        - name: {{ get $container "name" }}
+          {{- $_ := unset $container "name" }}
+          {{- toYaml $container | nindent 10 }}
+        {{- else }}
+        {{- toYaml (list $container) | nindent 8 }}
+        {{- end }}
+        {{- else }}
+        {{- toYaml (list .) | nindent 8 }}
+        {{- end }}
         {{- end }}
       {{- end }}
       volumes:
@@ -339,6 +643,19 @@ spec:
         - name: tailscale-state
           persistentVolumeClaim:
             claimName: {{ include "gpubox.tailscaleStateClaimName" . }}
+        {{- end }}
+        {{- if $dnsEnabled }}
+        - name: gpubox-dns
+          emptyDir: {}
+        - name: gpubox-dns-controller
+          configMap:
+            name: {{ include "gpubox.fullname" . }}-dns-controller
+            defaultMode: 0444
+            items:
+              - key: dns-controller.py
+                path: dns-controller.py
+        - name: gpubox-tailscale-socket
+          emptyDir: {}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
@@ -400,11 +717,30 @@ spec:
               mountPath: {{ .Values.persistence.hostRoot.mountPath | quote }}
               readOnly: {{ .Values.persistence.hostRoot.readOnly }}
             {{- end }}
+            {{- if $dnsEnabled }}
+            - name: gpubox-dns
+              mountPath: /etc/resolv.conf
+              subPath: client-resolv.conf
+              readOnly: true
+            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           stdin: {{ .Values.container.stdin }}
           tty: {{ .Values.container.tty }}
-        {{- with .Values.sidecars }}
-        {{- toYaml . | nindent 8 }}
+        {{- range .Values.sidecars }}
+        {{- if and $dnsEnabled (kindIs "map" .) }}
+        {{- $container := deepCopy . }}
+        {{- $mounts := default (list) (get $container "volumeMounts") }}
+        {{- $_ := set $container "volumeMounts" (append $mounts (dict "name" "gpubox-dns" "mountPath" "/etc/resolv.conf" "subPath" "client-resolv.conf" "readOnly" true)) }}
+        {{- if hasKey $container "name" }}
+        - name: {{ get $container "name" }}
+          {{- $_ := unset $container "name" }}
+          {{- toYaml $container | nindent 10 }}
+        {{- else }}
+        {{- toYaml (list $container) | nindent 8 }}
+        {{- end }}
+        {{- else }}
+        {{- toYaml (list .) | nindent 8 }}
+        {{- end }}
         {{- end }}

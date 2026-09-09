@@ -128,6 +128,8 @@ tailscale:
     secretKey: TS_AUTHKEY
   # Empty uses the StatefulSet Pod name (for example, gpubox-0).
   hostname: ""
+  # Discover and route the active MagicDNS suffix through managed pod-local
+  # DNS. Tailscale itself always receives TS_ACCEPT_DNS=false.
   acceptDNS: true
   acceptRoutes: true
   # One whitespace-free `tailscale up` flag per entry. Chart-managed flags
@@ -161,6 +163,29 @@ tailscale:
       allowPrivilegeEscalation: true
       runAsUser: 0
     resources: {}
+
+# Run a pod-local resolver that preserves the Kubernetes resolver and, when
+# requested, routes only the active Tailnet MagicDNS suffix through Tailscale.
+dns:
+  enabled: true
+  image:
+    repository: registry.k8s.io/coredns/coredns
+    tag: "v1.14.7"
+    digest: "sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  controller:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
 
 service:
   enabled: true

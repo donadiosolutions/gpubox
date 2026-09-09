@@ -495,9 +495,9 @@ jobs:
           version: v3.21.4
 
       - name: Helm lint
-        run: helm lint charts/gpubox
+        run: helm lint charts/gpubox --kube-version 1.34.11
 
-      - name: Tailscale chart render tests
+      - name: DNS and Tailscale chart render tests
         run: scripts/chart/tests/run.sh
 
       - name: Package chart

@@ -44,6 +44,9 @@ jobs:
           set -euo pipefail
           bash scripts/release/tests/run.sh
 
+      - name: Test DNS discovery controller
+        run: python3 -B -m unittest discover -s scripts/chart/tests -p 'test_dns_controller.py' -v
+
       - name: Install gitleaks
         shell: bash
         run: |
