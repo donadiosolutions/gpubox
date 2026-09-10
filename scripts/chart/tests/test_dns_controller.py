@@ -15,7 +15,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest import mock
+import unittest.mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -106,6 +106,7 @@ class UnixHTTPServer:
                     connection.sendall(self.response[:midpoint])
                     connection.sendall(self.response[midpoint:])
         except OSError:
+            # Closing fixture sockets during teardown can interrupt a server thread.
             pass
 
 
@@ -141,6 +142,7 @@ class SequencedUnixHTTPServer:
                         request += part
                     connection.sendall(response)
         except OSError:
+            # Closing fixture sockets during teardown can interrupt a server thread.
             pass
 
 
@@ -182,6 +184,7 @@ class DNSServer:
             if response is not None:
                 self.udp.sendto(response, peer)
         except OSError:
+            # Closing fixture sockets during teardown can interrupt a server thread.
             pass
 
     def _serve_tcp(self):
@@ -197,6 +200,7 @@ class DNSServer:
                 if response is not None:
                     connection.sendall(struct.pack("!H", len(response)) + response)
         except OSError:
+            # Closing fixture sockets during teardown can interrupt a server thread.
             pass
 
 
@@ -227,6 +231,7 @@ class MultiQueryDNSServer:
                 if response is not None:
                     self.udp.sendto(response, peer)
         except OSError:
+            # Closing fixture sockets during teardown can interrupt a server thread.
             pass
 
 
@@ -303,7 +308,7 @@ class ResolverTests(unittest.TestCase):
     def test_failed_initial_fsync_never_publishes_partial_static_file(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "original-resolv.conf"
-            with mock.patch.object(dns_controller.os, "fsync", side_effect=OSError("injected")):
+            with unittest.mock.patch.object(dns_controller.os, "fsync", side_effect=OSError("injected")):
                 with self.assertRaises(OSError):
                     dns_controller._create_once(path, b"nameserver 10.96.0.10\n")
             self.assertFalse(path.exists())
@@ -315,7 +320,7 @@ class ResolverTests(unittest.TestCase):
             state.mkdir()
             resolv = Path(temporary) / "resolv.conf"
             resolv.write_bytes(b"nameserver 10.96.0.10\n" + b"#" * dns_controller.MAX_RESOLV_CONF)
-            with mock.patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded source read")):
+            with unittest.mock.patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded source read")):
                 with self.assertRaises(dns_controller.ControllerError):
                     dns_controller.initialize_state(state, resolv)
             self.assertFalse((state / "original-resolv.conf").exists())
@@ -741,8 +746,8 @@ class ControllerLoopTests(unittest.TestCase):
                             raise StopAfterRecovery
 
                     with SequencedUnixHTTPServer([valid, malformed, valid]) as server:
-                        with mock.patch.object(dns_controller, "probe_magicdns", return_value=True):
-                            with mock.patch.object(dns_controller.time, "sleep", side_effect=observe_iteration):
+                        with unittest.mock.patch.object(dns_controller, "probe_magicdns", return_value=True):
+                            with unittest.mock.patch.object(dns_controller.time, "sleep", side_effect=observe_iteration):
                                 with self.assertRaises(StopAfterRecovery):
                                     dns_controller.run_controller(state, resolv, Path(server.path), True)
 
