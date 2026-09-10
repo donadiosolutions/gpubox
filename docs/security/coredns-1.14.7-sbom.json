@@ -1,0 +1,19 @@
+{
+  "format": "SPDX-2.3",
+  "generator": "docker-scout-1.18.1",
+  "generated_at": "2026-09-09T19:03:10Z",
+  "subject": "registry.k8s.io/coredns/coredns@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
+  "platform": "linux/amd64",
+  "software_packages": 198,
+  "spdx_packages_including_container_subject": 199,
+  "relationships": 1343,
+  "full_transient_spdx_sha256": "c56767ab6fefb9a89df441fe83d949eaba6add7655f2f1550a2ab30261ed7dc5",
+  "selected_packages": {
+    "github.com/coredns/coredns": "0.0.0-20260819003913-427fc80ed9ca",
+    "google.golang.org/grpc": "1.83.0",
+    "go.uber.org/automaxprocs": "1.6.0",
+    "go.etcd.io/etcd/client/v3": "3.6.13",
+    "golang.org/x/crypto": "0.54.0",
+    "golang.org/x/mod": "0.37.0"
+  }
+}

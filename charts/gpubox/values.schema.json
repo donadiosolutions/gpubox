@@ -235,6 +235,34 @@
       },
       "required": ["enabled", "image", "authKey", "hostname", "acceptDNS", "acceptRoutes", "extraArgs", "extraEnv", "state", "securityContext", "resources", "startupProbe", "sysctl"]
     },
+    "dns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+          },
+          "required": ["repository", "tag", "digest", "pullPolicy"]
+        },
+        "resources": { "type": "object" },
+        "controller": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resources": { "type": "object" }
+          },
+          "required": ["resources"]
+        }
+      },
+      "required": ["enabled", "image", "resources", "controller"]
+    },
     "service": {
       "type": "object",
       "additionalProperties": true,
@@ -292,5 +320,5 @@
       }
     }
   },
-  "required": ["tailscale"]
+  "required": ["tailscale", "dns"]
 }

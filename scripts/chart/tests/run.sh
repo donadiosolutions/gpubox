@@ -51,6 +51,21 @@ assert_before() {
   (( first_line < second_line )) || fail "expected ${first} to appear before ${second} in ${file}"
 }
 
+assert_adjacent() {
+  local file="$1"
+  local first="$2"
+  local second="$3"
+
+  awk -v first="${first}" -v second="${second}" '
+    $0 == first {
+      if ((getline next_line) > 0 && next_line == second) {
+        found = 1
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  ' "${file}" || fail "expected adjacent lines in ${file}: ${first} then ${second}"
+}
+
 expect_render_fail() {
   local name="$1"
   local expected="$2"
@@ -63,7 +78,7 @@ expect_render_fail() {
   assert_contains "${output}" "${expected}"
 }
 
-helm lint "${CHART_DIR}" >/dev/null
+helm lint "${CHART_DIR}" --kube-version 1.34.11 >/dev/null
 
 chart_version="$(awk '$1 == "version:" { print $2; exit }' "${CHART_DIR}/Chart.yaml")"
 [[ -n "${chart_version}" ]] || fail "could not read the chart version from ${CHART_DIR}/Chart.yaml"
@@ -76,7 +91,7 @@ expect_render_fail null-tailscale \
 
 expect_render_fail invalid-hostname \
   "/tailscale/hostname" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.hostname=invalid hostname'
@@ -84,7 +99,7 @@ expect_render_fail invalid-hostname \
 render_default="${TMP_DIR}/default.yaml"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.28.0 >"${render_default}"
+  --kube-version 1.34.11 >"${render_default}"
 
 assert_not_contains "${render_default}" "name: tailscale"
 assert_not_contains "${render_default}" "TS_USERSPACE"
@@ -94,7 +109,7 @@ assert_contains "${render_default}" "helm.sh/chart: gpubox-${chart_version}"
 render_enabled="${TMP_DIR}/enabled.yaml"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=gpubox-tailscale-auth >"${render_enabled}"
 
@@ -105,6 +120,9 @@ assert_contains "${render_enabled}" "ghcr.io/tailscale/tailscale:v1.102.3@sha256
 assert_contains "${render_enabled}" "name: TS_USERSPACE"
 assert_count "${render_enabled}" 1 "name: TS_USERSPACE"
 assert_contains "${render_enabled}" "name: TS_ACCEPT_DNS"
+assert_adjacent "${render_enabled}" \
+  "            - name: TS_ACCEPT_DNS" \
+  '              value: "false"'
 assert_contains "${render_enabled}" "--accept-routes=true --shields-up=false"
 assert_contains "${render_enabled}" "name: gpubox-tailscale-state"
 assert_contains "${render_enabled}" "claimName: gpubox-tailscale-state"
@@ -117,8 +135,6 @@ assert_contains "${render_enabled}" 'value: "127.0.0.1:9002"'
 assert_contains "${render_enabled}" "http://127.0.0.1:9002/healthz"
 assert_contains "${render_enabled}" "mountPath: \"/var/lib/tailscale\""
 assert_count "${render_enabled}" 1 "mountPath: \"/var/lib/tailscale\""
-assert_not_contains "${render_enabled}" "livenessProbe:"
-assert_not_contains "${render_enabled}" "readinessProbe:"
 assert_not_contains "${render_enabled}" "kind: Secret"
 assert_before "${render_enabled}" "        - name: tailscale-sysctl" "        - name: tailscale"
 assert_before "${render_enabled}" "        - name: tailscale" "        - name: gpubox"
@@ -127,7 +143,7 @@ render_inline="${TMP_DIR}/inline.yaml"
 inline_auth_key="tskey-auth-inline-test"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set-string "tailscale.authKey.value=${inline_auth_key}" >"${render_inline}"
 
@@ -140,7 +156,7 @@ assert_count "${render_inline}" 1 "${inline_auth_key}"
 render_custom="${TMP_DIR}/custom.yaml"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=custom-auth \
   --set tailscale.authKey.secretKey=authkey \
@@ -177,7 +193,7 @@ assert_contains "${render_custom}" "failureThreshold: 30"
 render_storage="${TMP_DIR}/storage.yaml"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=gpubox-tailscale-auth \
   --set tailscale.state.storageClass=fast-block \
@@ -193,7 +209,7 @@ assert_contains "${render_storage}" "backup: enabled"
 render_order="${TMP_DIR}/order.yaml"
 helm template gpubox "${CHART_DIR}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=gpubox-tailscale-auth \
   --set-string 'ssh.authorizedKeys[0]=ssh-ed25519 AAAATEST test@example' \
@@ -201,7 +217,7 @@ helm template gpubox "${CHART_DIR}" \
   --set initContainers[0].image=busybox:1.38.0 >"${render_order}"
 
 assert_before "${render_order}" "        - name: tailscale" "        - name: ssh-authorized-keys"
-assert_before "${render_order}" "        - name: ssh-authorized-keys" "          name: custom-init"
+assert_before "${render_order}" "        - name: ssh-authorized-keys" '        - name: "custom-init"'
 
 notes_chart="${TMP_DIR}/notes-chart"
 cp -a "${CHART_DIR}" "${notes_chart}"
@@ -219,7 +235,7 @@ printf '%s\n' \
 notes_render="${TMP_DIR}/notes.yaml"
 if ! helm template gpubox "${notes_chart}" \
   --namespace gpubox \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --show-only templates/notes-test.yaml \
   --set tailscale.enabled=true \
   --set-string "tailscale.authKey.value=${inline_auth_key}" >"${notes_render}" 2>&1; then
@@ -227,19 +243,20 @@ if ! helm template gpubox "${notes_chart}" \
   fail "could not render Helm notes offline"
 fi
 
-assert_contains "${notes_render}" "kubectl get svc -n kube-system kube-dns"
-assert_contains "${notes_render}" "svc.cluster.local"
+assert_contains "${notes_render}" "Managed DNS (Kubernetes 1.34+)"
+assert_contains "${notes_render}" "TS_ACCEPT_DNS is always false"
+assert_contains "${notes_render}" "No new Tailnet restricted-DNS rule is required"
 assert_contains "${notes_render}" "gpubox-tailscale-state"
 assert_not_contains "${notes_render}" "${inline_auth_key}"
 
 expect_render_fail missing-auth \
   "requires exactly one of tailscale.authKey.value or tailscale.authKey.existingSecret" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true
 
 expect_render_fail ambiguous-auth \
   "requires exactly one of tailscale.authKey.value or tailscale.authKey.existingSecret" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string tailscale.authKey.value=inline-auth
@@ -247,68 +264,70 @@ expect_render_fail ambiguous-auth \
 expect_render_fail whitespace-existing-auth \
   "tailscale.authKey.existingSecret must not contain leading or trailing whitespace" \
   --skip-schema-validation \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set-string tailscale.authKey.value=inline-auth \
   --set-string 'tailscale.authKey.existingSecret= '
 
 expect_render_fail whitespace-inline-auth \
   "tailscale.authKey.value must not contain leading or trailing whitespace" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set-string 'tailscale.authKey.value= inline-auth'
 
 expect_render_fail old-kubernetes \
   "requires Kubernetes 1.29 or newer" \
   --kube-version 1.28.9 \
+  --set dns.enabled=false \
   --set tailscale.enabled=true \
+  --set tailscale.acceptDNS=false \
   --set tailscale.authKey.existingSecret=existing-auth
 
 expect_render_fail multiple-replicas \
   "requires replicaCount=1" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set replicaCount=2
 
 expect_render_fail host-network \
   "incompatible with pod.hostNetwork=true" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set pod.hostNetwork=true
 
 expect_render_fail service-account-token \
   "requires serviceAccount.automountServiceAccountToken=false" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set serviceAccount.automountServiceAccountToken=true
 
 expect_render_fail empty-digest \
   "/tailscale/image/digest" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.image.digest=
 
 expect_render_fail nonprivileged-sidecar \
   "/tailscale/securityContext/privileged" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.securityContext.privileged=false
 
 expect_render_fail nonprivileged-sysctl \
   "/tailscale/sysctl/securityContext/privileged" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.sysctl.securityContext.privileged=false
 
 expect_render_fail reserved-env \
   "cannot override chart-managed or unsupported authentication variable TS_AUTHKEY" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.extraEnv[0].name=TS_AUTHKEY \
@@ -316,7 +335,7 @@ expect_render_fail reserved-env \
 
 expect_render_fail reserved-tailscaled-args \
   "cannot override chart-managed or unsupported authentication variable TS_TAILSCALED_EXTRA_ARGS" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.extraEnv[0].name=TS_TAILSCALED_EXTRA_ARGS \
@@ -324,7 +343,7 @@ expect_render_fail reserved-tailscaled-args \
 
 expect_render_fail reserved-pod-name \
   "cannot override chart-managed or unsupported authentication variable POD_NAME" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.extraEnv[0].name=POD_NAME \
@@ -332,63 +351,63 @@ expect_render_fail reserved-pod-name \
 
 expect_render_fail conflicting-arg \
   "cannot override chart-managed or unsupported flag --accept-routes=false" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.extraArgs[0]=--accept-routes=false'
 
 expect_render_fail single-dash-conflicting-arg \
   "cannot override chart-managed or unsupported flag -accept-routes=false" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.extraArgs[0]=-accept-routes=false'
 
 expect_render_fail alternative-auth-arg \
   "cannot override chart-managed or unsupported flag --client-id=forbidden" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.extraArgs[0]=--client-id=forbidden'
 
 expect_render_fail unsupported-ssh-arg \
   "cannot override chart-managed or unsupported flag --ssh" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.extraArgs[0]=--ssh'
 
 expect_render_fail whitespace-arg \
   "/tailscale/extraArgs/0" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.extraArgs[0]=--ssh --accept-routes=false'
 
 expect_render_fail init-name-collision \
   "initContainers cannot use managed Tailscale container name tailscale" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set initContainers[0].name=tailscale
 
 expect_render_fail sidecar-name-collision \
   "sidecars cannot use managed Tailscale container name tailscale-sysctl" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set sidecars[0].name=tailscale-sysctl
 
 expect_render_fail volume-name-collision \
   "extraVolumes cannot use managed Tailscale volume name tailscale-state" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set extraVolumes[0].name=tailscale-state
 
 expect_render_fail mount-name-collision \
   "extraVolumeMounts cannot mount managed Tailscale state volume tailscale-state" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set extraVolumeMounts[0].name=tailscale-state \
@@ -396,7 +415,7 @@ expect_render_fail mount-name-collision \
 
 expect_render_fail init-state-mount-collision \
   "initContainers cannot mount managed Tailscale state volume tailscale-state" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set initContainers[0].name=state-observer \
@@ -406,7 +425,7 @@ expect_render_fail init-state-mount-collision \
 
 expect_render_fail sidecar-state-mount-collision \
   "sidecars cannot mount managed Tailscale state volume tailscale-state" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set sidecars[0].name=state-observer \
@@ -416,56 +435,56 @@ expect_render_fail sidecar-state-mount-collision \
 
 expect_render_fail invalid-boolean \
   "/tailscale/acceptDNS" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string tailscale.acceptDNS=invalid
 
 expect_render_fail invalid-pull-policy \
   "/tailscale/image/pullPolicy" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.image.pullPolicy=Sometimes
 
 expect_render_fail invalid-access-mode \
   "/tailscale/state/accessModes/0" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.state.accessModes[0]=ReadWriteEverywhere
 
 expect_render_fail invalid-volume-mode \
   "/tailscale/state/volumeMode" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.state.volumeMode=Block
 
 expect_render_fail invalid-size \
   "/tailscale/state/size" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.state.size=large
 
 expect_render_fail invalid-probe \
   "/tailscale/startupProbe/periodSeconds" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set tailscale.startupProbe.periodSeconds=0
 
 expect_render_fail invalid-secret-key \
   "/tailscale/authKey/secretKey" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.authKey.secretKey=bad/key'
 
 expect_render_fail invalid-mount-path \
   "/tailscale/state/mountPath" \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.state.mountPath=/var/lib/tail scale'
@@ -473,9 +492,11 @@ expect_render_fail invalid-mount-path \
 expect_render_fail whitespace-existing-claim \
   "tailscale.state.existingClaim must not contain leading or trailing whitespace" \
   --skip-schema-validation \
-  --kube-version 1.29.0 \
+  --kube-version 1.34.11 \
   --set tailscale.enabled=true \
   --set tailscale.authKey.existingSecret=existing-auth \
   --set-string 'tailscale.state.existingClaim= '
 
-printf 'All Tailscale chart render tests passed.\n'
+bash "${ROOT_DIR}/scripts/chart/tests/render-dns.sh"
+
+printf 'All chart render tests passed.\n'

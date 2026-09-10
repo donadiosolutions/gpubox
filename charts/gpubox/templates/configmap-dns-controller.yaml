@@ -1,0 +1,11 @@
+{{- if .Values.dns.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gpubox.fullname" . }}-dns-controller
+  labels:
+    {{- include "gpubox.labels" . | nindent 4 }}
+data:
+  dns-controller.py: |-
+    {{- required "managed DNS requires packaged files/dns-controller.py" (.Files.Get "files/dns-controller.py") | nindent 4 }}
+{{- end }}

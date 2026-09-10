@@ -9,3 +9,7 @@
 *.bak
 
 *.tgz
+
+# Local Python test artifacts are not chart inputs.
+__pycache__/
+*.pyc

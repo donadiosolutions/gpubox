@@ -210,6 +210,17 @@
     },
     {
       "customType": "regex",
+      "description": "CoreDNS image tag + digest",
+      "managerFilePatterns": ["/^charts\\/gpubox\\/values\\.yaml$/"],
+      "matchStrings": [
+        "    repository: (?<depName>registry\\.k8s\\.io/coredns/coredns)\\n    tag: \"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"\\n    digest: \"(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "    repository: {{{depName}}}\n    tag: \"{{{newValue}}}\"\n    digest: \"{{{newDigest}}}\""
+    },
+    {
+      "customType": "regex",
       "description": "Sync Helm chart appVersion vscodecli-* to VS Code CLI",
       "managerFilePatterns": ["/^charts\\/gpubox\\/Chart\\.yaml$/"],
       "matchStrings": [
@@ -257,7 +268,7 @@
     },
     {
       "matchManagers": ["helm-values"],
-      "matchPackageNames": ["ghcr.io/tailscale/tailscale"],
+      "matchPackageNames": ["ghcr.io/tailscale/tailscale", "registry.k8s.io/coredns/coredns"],
       "enabled": false
     },
     {
@@ -266,6 +277,13 @@
       "pinDigests": true,
       "sourceUrl": "https://github.com/tailscale/tailscale",
       "changelogUrl": "https://tailscale.com/changelog"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["registry.k8s.io/coredns/coredns"],
+      "pinDigests": true,
+      "sourceUrl": "https://github.com/coredns/coredns",
+      "changelogUrl": "https://github.com/coredns/coredns/releases"
     },
     {
       "matchDatasources": ["custom.vscodeCliStable", "custom.vscodeCliStableWithShaBlock"],
