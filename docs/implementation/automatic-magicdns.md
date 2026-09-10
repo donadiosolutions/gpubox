@@ -29,6 +29,14 @@ mount the static file through subPath; CoreDNS directory-mounts its dynamic
 configuration, updated with atomic rename and fsync. Controller, CoreDNS,
 and Tailscale retain their runtime-provided resolver files.
 
+The setup container copies the controller's read-only ConfigMap source into a
+dedicated per-Pod `emptyDir`. The controller and both exec probes mount only
+that frozen copy at `/opt/gpubox-dns/dns-controller.py`; they never mount the
+live ConfigMap source. A controller-sidecar restart therefore preserves the
+Pod's controller generation. Pod recreation is the generation boundary for
+both upgrades and rollbacks. The writable state volume remains separate so the
+Corefile can continue to change dynamically.
+
 Initialization order is DNS volume setup, controller native sidecar, CoreDNS
 native sidecar, existing Tailscale initialization/sidecar, authorized-key and
 user initialization, then applications. Startup probes enforce file creation
@@ -41,7 +49,10 @@ now controls managed discovery. The controller has neither state-volume nor
 operator access. CoreDNS runs as 65532 with only NET_BIND_SERVICE; the
 controller is non-root with no capabilities. No pod-wide fsGroup is added.
 User containers receive the resolver mount through deliberate copy/injection;
-managed names, volumes, paths, and declared ports must reject collisions.
+managed names, volumes, paths, and declared ports must reject collisions. User
+init-container and sidecar names are quoted when rendered and, while managed
+DNS is enabled, must satisfy the Kubernetes DNS-label syntax and 63-character
+limit before resolver mounts are injected.
 
 ## Availability interpretation
 

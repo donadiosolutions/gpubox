@@ -203,8 +203,15 @@ search suffix can still cause a client's short name to expand into a tailnet
 name. CoreDNS cannot infer the original application input.
 
 The application resolver file is created once per Pod and mounted read-only.
-Only the directory-mounted Corefile changes dynamically. Controller restarts
-reuse the original resolver snapshot and application file. CoreDNS listens on
+At Pod initialization, the setup container also copies the controller from its
+read-only ConfigMap source into a dedicated ephemeral volume. The controller,
+startup probe, and liveness probe all mount that frozen copy read-only at
+`/opt/gpubox-dns/dns-controller.py`. ConfigMap projection updates therefore do
+not change the executable in an existing Pod; controller restarts reuse the
+Pod's original controller generation. Only the directory-mounted Corefile in
+the separate writable DNS state volume changes dynamically. Controller
+restarts also reuse the original resolver snapshot and application file.
+CoreDNS listens on
 loopback UDP/TCP 53, with Pod-reachable health/readiness on 8080/8181. Neither
 DNS nor health ports are published by a Service. A CoreDNS process failure can
 briefly interrupt DNS until Kubernetes restarts it; no secondary application
@@ -214,8 +221,9 @@ The default controller and CoreDNS resource requests are each 10m CPU and
 32Mi memory, with a 128Mi memory limit and no CPU limit. Override them using
 `dns.controller.resources` and `dns.resources`. The controller image remains
 the application image; `dns.image` controls the digest-pinned CoreDNS image.
-The setup container initializes only the dedicated ephemeral DNS volume and
-does not change existing PVC ownership through a Pod-wide `fsGroup`.
+The setup container initializes only the dedicated ephemeral DNS state and
+controller code volumes and does not change existing PVC ownership through a
+Pod-wide `fsGroup`.
 
 To retain the original application resolver instead:
 
@@ -228,16 +236,22 @@ tailscale:
 
 Managed DNS rejects host networking, Kubernetes below 1.34, and conflicts with
 its container/volume names, resolver mounts, or reserved ports. User init
-containers and sidecars receive the managed resolver automatically; unrelated
-fields are preserved. Enabling Tailscale DNS acceptance with managed DNS
-disabled is rejected. Port conflicts not declared in the chart surface as
-startup failures. Existing Tailscale authentication startup gates still apply;
-MagicDNS availability does not determine controller liveness.
+containers and sidecars must use Kubernetes DNS-label names of at most 63
+characters; their names are rendered as quoted YAML strings, and they receive
+the managed resolver automatically. Unrelated fields are preserved. Enabling
+Tailscale DNS acceptance with managed DNS disabled is rejected. Port conflicts
+not declared in the chart surface as startup failures. Existing Tailscale
+authentication startup gates still apply; MagicDNS availability does not
+determine controller liveness.
 
 ### Upgrade and rollback
 
 The default StatefulSet update strategy is `OnDelete`. A successful Helm
-upgrade changes the template but does not replace the running Pod.
+upgrade changes the template and controller source ConfigMap but does not
+replace the running Pod. The running Pod continues using its initialization-time
+controller copy, including after a controller-sidecar restart. Recreating the
+Pod is the explicit generation boundary that installs the upgraded or rolled
+back controller together with its matching arguments and state layout.
 
 1. Retain any existing restricted Tailnet DNS rule while the old Pod runs.
 2. Upgrade the chart to 2.9.0.

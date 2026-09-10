@@ -14,6 +14,11 @@ assert_count() {
   actual="$(grep -Fc -- "$3" "$1" || true)"
   [[ "${actual}" == "$2" ]] || fail "expected $1 to contain $3 $2 time(s), found ${actual}"
 }
+assert_line_count() {
+  local actual
+  actual="$(grep -Fxc -- "$3" "$1" || true)"
+  [[ "${actual}" == "$2" ]] || fail "expected $1 to contain exact line $3 $2 time(s), found ${actual}"
+}
 assert_before() {
   local first_line second_line
   first_line="$(grep -Fnxm1 -- "$2" "$1" | cut -d: -f1 || true)"
@@ -28,8 +33,8 @@ assert_adjacent() {
   ' "$1" || fail "expected adjacent lines in $1: $2 then $3"
 }
 extract_named_block() {
-  awk -v marker="        - name: $2" '
-    $0 == marker { found = 1; started = 1 }
+  awk -v name="$2" '
+    $0 == "        - name: " name || $0 == "        - name: \"" name "\"" { found = 1; started = 1; marker = $0 }
     started && $0 != marker && ($0 ~ /^        - name: / || $0 ~ /^      (volumes|containers):/) { exit }
     found { print }
   ' "$1" >"$3"
@@ -86,8 +91,17 @@ assert_count "${TMP_DIR}/dns.block" 2 "port: 8181"
 assert_count "${TMP_DIR}/dns.block" 1 "port: 8080"
 assert_not_contains "${TMP_DIR}/dns.block" "subPath: Corefile"
 assert_count "${TMP_DIR}/dns.block" 1 "cpu: 10m"
-assert_count "${TMP_DIR}/dns-setup.block" 1 "mountPath:"
+assert_count "${TMP_DIR}/dns-setup.block" 3 "mountPath:"
 assert_not_contains "${TMP_DIR}/dns-setup.block" "name: home"
+assert_contains "${TMP_DIR}/dns-setup.block" "chmod 0755 /opt/gpubox-dns"
+assert_contains "${TMP_DIR}/dns-setup.block" "cp /opt/gpubox-dns-source/dns-controller.py /opt/gpubox-dns/.dns-controller.py.new"
+assert_before "${TMP_DIR}/dns-setup.block" "              chmod 0444 /opt/gpubox-dns/.dns-controller.py.new" "              mv -f /opt/gpubox-dns/.dns-controller.py.new /opt/gpubox-dns/dns-controller.py"
+assert_before "${TMP_DIR}/dns-setup.block" "              mv -f /opt/gpubox-dns/.dns-controller.py.new /opt/gpubox-dns/dns-controller.py" "              chmod 0555 /opt/gpubox-dns"
+assert_contains "${TMP_DIR}/dns-setup.block" "name: gpubox-dns-controller-source"
+assert_contains "${TMP_DIR}/dns-setup.block" "mountPath: /opt/gpubox-dns-source"
+assert_contains "${TMP_DIR}/dns-setup.block" "name: gpubox-dns-controller"
+assert_contains "${TMP_DIR}/dns-setup.block" "mountPath: /opt/gpubox-dns"
+assert_before "${TMP_DIR}/dns-setup.block" "              chown 0:0 /var/run/gpubox-dns" "              chmod 0750 /var/run/gpubox-dns"
 assert_before "${TMP_DIR}/dns-setup.block" "              chmod 0750 /var/run/gpubox-dns" "              chown 65532:65532 /var/run/gpubox-dns"
 assert_contains "${TMP_DIR}/gpubox.block" "mountPath: /etc/resolv.conf"
 assert_contains "${TMP_DIR}/gpubox.block" "subPath: client-resolv.conf"
@@ -97,6 +111,13 @@ script_hash="$(sha256sum "${CHART_DIR}/files/dns-controller.py" | cut -d' ' -f1)
 assert_contains "${default_render}" "checksum/dns-controller: ${script_hash}"
 assert_count "${default_render}" 2 "ghcr.io/donadiosolutions/gpubox:v2.6.1@sha256:b7439261c35baef39e50f2a6767a990495826b16d8151edb6295878037ac6832"
 assert_contains "${default_render}" "name: gpubox-dns-controller"
+assert_contains "${default_render}" "name: gpubox-dns-controller-source"
+assert_line_count "${default_render}" 2 "            - name: gpubox-dns-controller"
+assert_line_count "${default_render}" 1 "        - name: gpubox-dns-controller"
+assert_line_count "${default_render}" 1 "            - name: gpubox-dns-controller-source"
+assert_line_count "${default_render}" 1 "        - name: gpubox-dns-controller-source"
+assert_contains "${TMP_DIR}/dns-controller.block" "mountPath: /opt/gpubox-dns"
+assert_not_contains "${TMP_DIR}/dns-controller.block" "gpubox-dns-controller-source"
 assert_contains "${default_render}" "name: gpubox-tailscale-socket"
 assert_not_contains "${default_render}" "        - name: tailscale"
 
@@ -179,7 +200,10 @@ extract_named_block "${custom_render}" native-init "${TMP_DIR}/native-init.block
 extract_named_block "${custom_render}" ordinary-sidecar "${TMP_DIR}/ordinary-sidecar.block"
 extract_named_block "${custom_render}" ssh-authorized-keys "${TMP_DIR}/ssh-init.block"
 assert_before "${custom_render}" "        - name: tailscale" "        - name: ssh-authorized-keys"
-assert_before "${custom_render}" "        - name: ssh-authorized-keys" "        - name: ordinary-init"
+assert_before "${custom_render}" "        - name: ssh-authorized-keys" '        - name: "ordinary-init"'
+assert_contains "${custom_render}" '        - name: "ordinary-init"'
+assert_contains "${custom_render}" '        - name: "native-init"'
+assert_contains "${custom_render}" '        - name: "ordinary-sidecar"'
 assert_contains "${TMP_DIR}/ordinary-init.block" "value: init"
 assert_contains "${TMP_DIR}/ordinary-init.block" "mountPath: /etc/resolv.conf"
 assert_not_contains "${TMP_DIR}/ordinary-init.block" "restartPolicy: Always"
@@ -202,6 +226,56 @@ expect_render_fail disabled-magicdns "tailscale.acceptDNS=true requires dns.enab
 expect_render_fail invalid-enabled-type "/dns/enabled" --kube-version 1.34.11 --set-string dns.enabled=yes
 expect_render_fail invalid-digest "/dns/image/digest" --kube-version 1.34.11 --set dns.image.digest=sha256:deadbeef
 expect_render_fail invalid-pull-policy "/dns/image/pullPolicy" --kube-version 1.34.11 --set dns.image.pullPolicy=Sometimes
+
+name_values="${TMP_DIR}/container-names.yaml"
+cat >"${name_values}" <<'YAML'
+initContainers:
+  - name: "true"
+    image: busybox:1.38.0
+  - name: "123"
+    image: busybox:1.38.0
+sidecars:
+  - name: "null"
+    image: busybox:1.38.0
+YAML
+name_render="${TMP_DIR}/container-names-render.yaml"
+render_statefulset "${name_render}" --values "${name_values}"
+assert_contains "${name_render}" '        - name: "true"'
+assert_contains "${name_render}" '        - name: "123"'
+assert_contains "${name_render}" '        - name: "null"'
+
+invalid_name_values="${TMP_DIR}/invalid-container-names.yaml"
+cat >"${invalid_name_values}" <<'YAML'
+initContainers:
+  - name: "foo #bar"
+    image: busybox:1.38.0
+YAML
+expect_render_fail yaml-significant-name 'initContainers name "foo #bar" must match Kubernetes DNS label syntax' --kube-version 1.34.11 --values "${invalid_name_values}"
+
+cat >"${invalid_name_values}" <<'YAML'
+initContainers:
+  - name: 123
+    image: busybox:1.38.0
+YAML
+expect_render_fail numeric-name "initContainers name must be a string matching Kubernetes DNS label syntax" --kube-version 1.34.11 --values "${invalid_name_values}"
+
+cat >"${invalid_name_values}" <<'YAML'
+sidecars:
+  - image: busybox:1.38.0
+YAML
+expect_render_fail missing-name "sidecars entries require a name matching Kubernetes DNS label syntax" --kube-version 1.34.11 --values "${invalid_name_values}"
+
+cat >"${invalid_name_values}" <<'YAML'
+sidecars:
+  - name: |-
+      line
+      break
+    image: busybox:1.38.0
+YAML
+expect_render_fail newline-name "sidecars name" --kube-version 1.34.11 --values "${invalid_name_values}"
+
+too_long_name="$(printf 'a%.0s' {1..64})"
+expect_render_fail long-name "contain at most 63 characters" --kube-version 1.34.11 --set-string "sidecars[0].name=${too_long_name}" --set sidecars[0].image=busybox:1.38.0
 expect_render_fail operator-flag "unsupported flag --operator=default" --kube-version 1.34.11 --set tailscale.enabled=true --set tailscale.authKey.existingSecret=gpubox-tailscale-auth --set-string 'tailscale.extraArgs[0]=--operator=default'
 expect_render_fail triple-operator-flag "unsupported flag ---operator=default" --kube-version 1.34.11 --set tailscale.enabled=true --set tailscale.authKey.existingSecret=gpubox-tailscale-auth --set-string 'tailscale.extraArgs[0]=---operator=default'
 expect_render_fail socket-env "variable TS_SOCKET" --kube-version 1.34.11 --set tailscale.enabled=true --set tailscale.authKey.existingSecret=gpubox-tailscale-auth --set tailscale.extraEnv[0].name=TS_SOCKET --set tailscale.extraEnv[0].value=/tmp/forbidden.sock
@@ -211,10 +285,13 @@ for collision in \
   'init-name|initContainers[0].name=dns-controller|initContainers cannot use managed DNS container name dns-controller' \
   'sidecar-name|sidecars[0].name=dns|sidecars cannot use managed DNS container name dns' \
   'volume-name|extraVolumes[0].name=gpubox-dns|extraVolumes cannot use managed DNS volume name gpubox-dns' \
+  'source-volume-name|extraVolumes[0].name=gpubox-dns-controller-source|extraVolumes cannot use managed DNS volume name gpubox-dns-controller-source' \
   'main-resolver|extraVolumeMounts[0].mountPath=/etc|extraVolumeMounts cannot shadow managed resolver path /etc/resolv.conf' \
   'main-root|extraVolumeMounts[0].mountPath=/|extraVolumeMounts cannot shadow managed resolver path /etc/resolv.conf' \
   'init-runtime|initContainers[0].volumeMounts[0].mountPath=/var/run/gpubox-dns/private|initContainers cannot conflict with managed DNS mount path /var/run/gpubox-dns/private' \
   'sidecar-script|sidecars[0].volumeMounts[0].mountPath=/opt/gpubox-dns|sidecars cannot conflict with managed DNS mount path /opt/gpubox-dns' \
+  'init-script-source|initContainers[0].volumeMounts[0].mountPath=/opt/gpubox-dns-source|initContainers cannot conflict with managed DNS mount path /opt/gpubox-dns-source' \
+  'sidecar-source-volume|sidecars[0].volumeMounts[0].name=gpubox-dns-controller-source|sidecars cannot mount managed DNS volume gpubox-dns-controller-source' \
   'sidecar-run-alias|sidecars[0].volumeMounts[0].mountPath=/run/gpubox-tailscale|sidecars cannot conflict with managed DNS mount path /run/gpubox-tailscale' \
   'main-dns-port|containerPorts[0].containerPort=53|containerPorts cannot declare managed DNS port 53' \
   'init-health-port|initContainers[0].ports[0].containerPort=8080|initContainers cannot declare managed DNS port 8080' \

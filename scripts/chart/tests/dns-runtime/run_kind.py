@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -314,19 +315,93 @@ dns:
         assert self.restart_count(pod, "gpubox") == app_restart
         assert self.exec(namespace, name, "gpubox", "/usr/bin/getent", "hosts", "kubernetes.default.svc.cluster.local")
 
+    def chart_variant(self, name: str, marker: str) -> tuple[pathlib.Path, str]:
+        chart = self.tmp / name
+        shutil.copytree(CHART, chart)
+        controller = chart / "files/dns-controller.py"
+        controller.write_bytes(controller.read_bytes() + f"\n# {marker}\n".encode())
+        return chart, hashlib.sha256(controller.read_bytes().rstrip(b"\n")).hexdigest()
+
     def archived_chart(self) -> pathlib.Path:
         archive = self.tmp / "v2.8.2.tar"
         with archive.open("wb") as output:
             command("git", "archive", "--format=tar", "v2.8.2", "charts/gpubox", cwd=REPO, stdout=output)
-        destination = self.tmp / "old"
+        destination = self.tmp / "v2.8.2"
         destination.mkdir()
         with tarfile.open(archive) as bundle:
             bundle.extractall(destination, filter="data")
         return destination / "charts/gpubox"
 
-    def test_ondelete_upgrade_rollback(self) -> None:
-        namespace = self.namespace("upgrade")
-        release = "upgrade"
+    def controller_hash(self, namespace: str, pod: str) -> str:
+        output = self.exec(
+            namespace,
+            pod,
+            "dns-controller",
+            "/usr/bin/sha256sum",
+            "/opt/gpubox-dns/dns-controller.py",
+        )
+        return output.split()[0]
+
+    def wait_projected_controller_hash(self, pod: dict[str, Any], expected: str) -> None:
+        pod_uid = pod["metadata"]["uid"]
+        path = (
+            f"/var/lib/kubelet/pods/{pod_uid}/volumes/kubernetes.io~configmap/"
+            "gpubox-dns-controller-source/dns-controller.py"
+        )
+        deadline = time.monotonic() + 120
+        observed = ""
+        while time.monotonic() < deadline:
+            result = command(
+                "docker",
+                "exec",
+                f"{self.cluster}-control-plane",
+                "sha256sum",
+                path,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if result.returncode == 0:
+                observed = result.stdout.split()[0]
+                if observed == expected:
+                    return
+            time.sleep(1)
+        raise AssertionError(f"projected controller did not converge to {expected}; observed {observed}")
+
+    @staticmethod
+    def controller_probes(pod: dict[str, Any]) -> dict[str, Any]:
+        controller = next(item for item in pod["spec"]["initContainers"] if item["name"] == "dns-controller")
+        return {
+            "startupProbe": controller["startupProbe"],
+            "livenessProbe": controller["livenessProbe"],
+        }
+
+    def assert_controller_probes(self, namespace: str, pod: dict[str, Any]) -> None:
+        name = pod["metadata"]["name"]
+        for probe in self.controller_probes(pod).values():
+            command_line = probe["exec"]["command"]
+            self.exec(namespace, name, "dns-controller", *command_line)
+
+    def restart_controller(self, namespace: str, release: str, pod: dict[str, Any]) -> dict[str, Any]:
+        before = self.restart_count(pod, "dns-controller")
+        status = next(
+            item for item in pod["status"]["initContainerStatuses"] if item["name"] == "dns-controller"
+        )
+        container_id = status["containerID"].removeprefix("containerd://")
+        command(
+            "docker",
+            "exec",
+            f"{self.cluster}-control-plane",
+            "crictl",
+            "stop",
+            container_id,
+            stdout=subprocess.DEVNULL,
+        )
+        return self.wait_restart(namespace, release, "dns-controller", before)
+
+    def test_legacy_ondelete_upgrade_rollback(self) -> None:
+        namespace = self.namespace("legacy-upgrade")
+        release = "legacy-upgrade"
         old_chart = self.archived_chart()
         self.install(namespace, release, old_chart)
         old_pod = self.wait_ready(namespace, release)
@@ -355,6 +430,64 @@ dns:
         rolled_back = self.wait_ready(namespace, release)
         assert rolled_back["metadata"]["uid"] != upgraded_uid
         assert "dns-controller" not in [item["name"] for item in rolled_back["spec"].get("initContainers", [])]
+
+    def test_enabled_ondelete_code_freeze(self) -> None:
+        namespace = self.namespace("upgrade")
+        release = "upgrade"
+        old_chart, old_hash = self.chart_variant("old-chart", "runtime-test old controller revision")
+        new_hash = hashlib.sha256((CHART / "files/dns-controller.py").read_bytes().rstrip(b"\n")).hexdigest()
+        assert old_hash != new_hash
+        self.install(namespace, release, old_chart)
+        old_pod = self.assert_managed_pod(namespace, release)
+        old_uid = old_pod["metadata"]["uid"]
+        old_probes = self.controller_probes(old_pod)
+        assert self.controller_hash(namespace, old_pod["metadata"]["name"]) == old_hash
+        self.assert_controller_probes(namespace, old_pod)
+
+        self.helm(
+            "upgrade",
+            release,
+            str(CHART),
+            "--namespace",
+            namespace,
+            "--values",
+            str(self.values()),
+            stdout=subprocess.DEVNULL,
+        )
+        retained = self.pod(namespace, release)
+        assert retained["metadata"]["uid"] == old_uid
+        self.wait_projected_controller_hash(retained, new_hash)
+        assert self.controller_probes(retained) == old_probes
+        assert self.controller_hash(namespace, retained["metadata"]["name"]) == old_hash
+        retained = self.restart_controller(namespace, release, retained)
+        assert retained["metadata"]["uid"] == old_uid
+        assert self.controller_probes(retained) == old_probes
+        assert self.controller_hash(namespace, retained["metadata"]["name"]) == old_hash
+        self.assert_controller_probes(namespace, retained)
+
+        self.kubectl("-n", namespace, "delete", "pod", old_pod["metadata"]["name"], "--wait=true", stdout=subprocess.DEVNULL)
+        upgraded = self.assert_managed_pod(namespace, release)
+        upgraded_uid = upgraded["metadata"]["uid"]
+        assert upgraded_uid != old_uid
+        assert self.controller_hash(namespace, upgraded["metadata"]["name"]) == new_hash
+        self.assert_controller_probes(namespace, upgraded)
+
+        self.helm("rollback", release, "1", "--namespace", namespace, stdout=subprocess.DEVNULL)
+        retained = self.pod(namespace, release)
+        assert retained["metadata"]["uid"] == upgraded_uid
+        self.wait_projected_controller_hash(retained, old_hash)
+        assert self.controller_hash(namespace, retained["metadata"]["name"]) == new_hash
+        retained = self.restart_controller(namespace, release, retained)
+        assert retained["metadata"]["uid"] == upgraded_uid
+        assert self.controller_hash(namespace, retained["metadata"]["name"]) == new_hash
+        self.assert_controller_probes(namespace, retained)
+
+        self.kubectl("-n", namespace, "delete", "pod", upgraded["metadata"]["name"], "--wait=true", stdout=subprocess.DEVNULL)
+        rolled_back = self.assert_managed_pod(namespace, release)
+        assert rolled_back["metadata"]["uid"] != upgraded_uid
+        assert self.controller_hash(namespace, rolled_back["metadata"]["name"]) == old_hash
+        assert self.controller_probes(rolled_back) == old_probes
+        self.assert_controller_probes(namespace, rolled_back)
 
     def wait_corefile(self, namespace: str, release: str, contains_magic: bool) -> dict[str, Any]:
         deadline = time.monotonic() + 20
@@ -645,7 +778,8 @@ def main() -> None:
         suite.load_small_images()
         suite.test_current_chart()
         suite.test_controlled_localapi()
-        suite.test_ondelete_upgrade_rollback()
+        suite.test_legacy_ondelete_upgrade_rollback()
+        suite.test_enabled_ondelete_code_freeze()
         suite.test_missing_python()
         print("PASS Kind chart runtime integration")
     except Exception:

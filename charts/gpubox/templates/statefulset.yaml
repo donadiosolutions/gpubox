@@ -2,8 +2,8 @@
 {{- $tailscaleEnabled := .Values.tailscale.enabled -}}
 {{- $dnsEnabled := .Values.dns.enabled -}}
 {{- $dnsContainerNames := dict "dns-setup" true "dns-controller" true "dns" true -}}
-{{- $dnsVolumeNames := dict "gpubox-dns" true "gpubox-dns-controller" true "gpubox-tailscale-socket" true -}}
-{{- $dnsMountPaths := list "/etc/resolv.conf" "/var/run/gpubox-dns" "/run/gpubox-dns" "/opt/gpubox-dns" "/var/run/gpubox-tailscale" "/run/gpubox-tailscale" -}}
+{{- $dnsVolumeNames := dict "gpubox-dns" true "gpubox-dns-controller" true "gpubox-dns-controller-source" true "gpubox-tailscale-socket" true -}}
+{{- $dnsMountPaths := list "/etc/resolv.conf" "/var/run/gpubox-dns" "/run/gpubox-dns" "/opt/gpubox-dns" "/opt/gpubox-dns-source" "/var/run/gpubox-tailscale" "/run/gpubox-tailscale" -}}
 {{- $dnsPorts := dict "53" true "8080" true "8181" true -}}
 {{- if $dnsEnabled -}}
 {{- if semverCompare "<1.34-0" .Capabilities.KubeVersion.Version -}}
@@ -30,7 +30,17 @@
 {{- range $containerKind := list "initContainers" "sidecars" -}}
 {{- range (get $.Values $containerKind) -}}
 {{- if kindIs "map" . -}}
-{{- $containerName := default "" (get . "name") -}}
+{{- if not (hasKey . "name") -}}
+{{- fail (printf "%s entries require a name matching Kubernetes DNS label syntax" $containerKind) -}}
+{{- end -}}
+{{- $containerNameValue := get . "name" -}}
+{{- if not (kindIs "string" $containerNameValue) -}}
+{{- fail (printf "%s name must be a string matching Kubernetes DNS label syntax" $containerKind) -}}
+{{- end -}}
+{{- $containerName := default "" $containerNameValue -}}
+{{- if or (gt (len $containerName) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $containerName)) -}}
+{{- fail (printf "%s name %q must match Kubernetes DNS label syntax and contain at most 63 characters" $containerKind $containerName) -}}
+{{- end -}}
 {{- if hasKey $dnsContainerNames $containerName -}}
 {{- fail (printf "%s cannot use managed DNS container name %s" $containerKind $containerName) -}}
 {{- end -}}
@@ -324,10 +334,23 @@ spec:
           args:
             - |
               set -eu
+              chmod 0755 /opt/gpubox-dns
+              rm -f /opt/gpubox-dns/.dns-controller.py.new
+              cp /opt/gpubox-dns-source/dns-controller.py /opt/gpubox-dns/.dns-controller.py.new
+              chmod 0444 /opt/gpubox-dns/.dns-controller.py.new
+              mv -f /opt/gpubox-dns/.dns-controller.py.new /opt/gpubox-dns/dns-controller.py
+              chmod 0555 /opt/gpubox-dns
               mkdir -p /var/run/gpubox-dns
+              chown 0:0 /var/run/gpubox-dns
               chmod 0750 /var/run/gpubox-dns
               chown 65532:65532 /var/run/gpubox-dns
           volumeMounts:
+            - name: gpubox-dns-controller-source
+              mountPath: /opt/gpubox-dns-source
+              readOnly: true
+            - name: gpubox-dns-controller
+              mountPath: /opt/gpubox-dns
+              readOnly: false
             - name: gpubox-dns
               mountPath: /var/run/gpubox-dns
               readOnly: false
@@ -592,7 +615,7 @@ spec:
         {{- $mounts := default (list) (get $container "volumeMounts") }}
         {{- $_ := set $container "volumeMounts" (append $mounts (dict "name" "gpubox-dns" "mountPath" "/etc/resolv.conf" "subPath" "client-resolv.conf" "readOnly" true)) }}
         {{- if hasKey $container "name" }}
-        - name: {{ get $container "name" }}
+        - name: {{ get $container "name" | quote }}
           {{- $_ := unset $container "name" }}
           {{- toYaml $container | nindent 10 }}
         {{- else }}
@@ -648,6 +671,8 @@ spec:
         - name: gpubox-dns
           emptyDir: {}
         - name: gpubox-dns-controller
+          emptyDir: {}
+        - name: gpubox-dns-controller-source
           configMap:
             name: {{ include "gpubox.fullname" . }}-dns-controller
             defaultMode: 0444
@@ -734,7 +759,7 @@ spec:
         {{- $mounts := default (list) (get $container "volumeMounts") }}
         {{- $_ := set $container "volumeMounts" (append $mounts (dict "name" "gpubox-dns" "mountPath" "/etc/resolv.conf" "subPath" "client-resolv.conf" "readOnly" true)) }}
         {{- if hasKey $container "name" }}
-        - name: {{ get $container "name" }}
+        - name: {{ get $container "name" | quote }}
           {{- $_ := unset $container "name" }}
           {{- toYaml $container | nindent 10 }}
         {{- else }}

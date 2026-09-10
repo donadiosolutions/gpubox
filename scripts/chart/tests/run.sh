@@ -217,7 +217,7 @@ helm template gpubox "${CHART_DIR}" \
   --set initContainers[0].image=busybox:1.38.0 >"${render_order}"
 
 assert_before "${render_order}" "        - name: tailscale" "        - name: ssh-authorized-keys"
-assert_before "${render_order}" "        - name: ssh-authorized-keys" "        - name: custom-init"
+assert_before "${render_order}" "        - name: ssh-authorized-keys" '        - name: "custom-init"'
 
 notes_chart="${TMP_DIR}/notes-chart"
 cp -a "${CHART_DIR}" "${notes_chart}"

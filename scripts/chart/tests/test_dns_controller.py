@@ -109,6 +109,41 @@ class UnixHTTPServer:
             pass
 
 
+class SequencedUnixHTTPServer:
+    def __init__(self, responses: list[bytes]):
+        self.responses = responses
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.path = str(Path(self.tempdir.name) / "tailscaled.sock")
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server.bind(self.path)
+        self.server.listen(1)
+        self.thread = threading.Thread(target=self._serve, daemon=True)
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *_args):
+        self.server.close()
+        self.thread.join(timeout=2)
+        self.tempdir.cleanup()
+
+    def _serve(self):
+        try:
+            for response in self.responses:
+                connection, _ = self.server.accept()
+                with connection:
+                    request = b""
+                    while b"\r\n\r\n" not in request:
+                        part = connection.recv(4096)
+                        if not part:
+                            break
+                        request += part
+                    connection.sendall(response)
+        except OSError:
+            pass
+
+
 class DNSServer:
     def __init__(self, udp_behavior, tcp_behavior=None):
         self.udp_behavior = udp_behavior
@@ -473,6 +508,14 @@ class LocalAPITests(unittest.TestCase):
                 with self.assertRaises(dns_controller.ControllerError):
                     dns_controller.fetch_localapi_status(server.path, timeout=1.0)
 
+    def test_rejects_content_lengths_that_are_not_bounded_ascii_decimal(self):
+        for value in [b"\xb2", b"9" * 5000]:
+            response = b"HTTP/1.1 200 OK\r\nContent-Length: " + value + b"\r\n\r\n"
+            with self.subTest(value=value[:20]):
+                with UnixHTTPServer(response) as server:
+                    with self.assertRaises(dns_controller.ControllerError):
+                        dns_controller.fetch_localapi_status(server.path, timeout=1.0)
+
     def test_accepts_bounded_chunked_and_connection_delimited_json(self):
         responses = [
             b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n7\r\n{\"ok\":1\r\n1\r\n}\r\n0\r\nX-Trace: yes\r\n\r\n",
@@ -664,6 +707,55 @@ class StateCheckTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertEqual(stale.returncode, 1)
+
+
+class ControllerLoopTests(unittest.TestCase):
+    def test_malformed_content_length_falls_back_then_recovers_without_stopping(self):
+        body = (
+            b'{"BackendState":"Running","CurrentTailnet":{"MagicDNSEnabled":true,'
+            b'"MagicDNSSuffix":"corp-alpha.ts.net"},"Self":{'
+            b'"DNSName":"gpubox.corp-alpha.ts.net.","TailscaleIPs":["100.64.0.42"]}}'
+        )
+        valid = b"HTTP/1.1 200 OK\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body
+        for malformed_length in [b"\xb2", b"9" * 5000]:
+            with self.subTest(malformed_length=malformed_length[:20]):
+                malformed = b"HTTP/1.1 200 OK\r\nContent-Length: " + malformed_length + b"\r\n\r\n"
+                with tempfile.TemporaryDirectory() as temporary:
+                    state = Path(temporary) / "state"
+                    state.mkdir()
+                    resolv = Path(temporary) / "resolv.conf"
+                    resolv.write_bytes(b"nameserver 10.96.0.10\n")
+                    observations = []
+
+                    class StopAfterRecovery(Exception):
+                        pass
+
+                    def observe_iteration(_seconds):
+                        observations.append(
+                            (
+                                (state / "Corefile").read_bytes(),
+                                int((state / "heartbeat").read_text().strip()),
+                            )
+                        )
+                        if len(observations) == 3:
+                            raise StopAfterRecovery
+
+                    with SequencedUnixHTTPServer([valid, malformed, valid]) as server:
+                        with mock.patch.object(dns_controller, "probe_magicdns", return_value=True):
+                            with mock.patch.object(dns_controller.time, "sleep", side_effect=observe_iteration):
+                                with self.assertRaises(StopAfterRecovery):
+                                    dns_controller.run_controller(state, resolv, Path(server.path), True)
+
+                    cluster = dns_controller.make_cluster_corefile(("10.96.0.10",))
+                    active = dns_controller.make_active_corefile(
+                        ("10.96.0.10",), dns_controller.discovery_from_status(VALID_V4_STATUS)
+                    )
+                    self.assertEqual(
+                        [corefile for corefile, _heartbeat in observations],
+                        [active, cluster, active],
+                    )
+                    heartbeats = [heartbeat for _corefile, heartbeat in observations]
+                    self.assertTrue(all(before < after for before, after in zip(heartbeats, heartbeats[1:])))
 
 
 if __name__ == "__main__":

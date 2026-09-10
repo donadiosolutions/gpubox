@@ -410,9 +410,17 @@ def fetch_localapi_status(socket_path: str | Path, *, timeout: float = REQUEST_S
                 raise ControllerError("unsupported LocalAPI transfer encoding")
             body = _read_chunked_body(connection, body, deadline)
         elif lengths:
-            if len(lengths) != 1 or not lengths[0].isdigit():
+            value = lengths[0] if len(lengths) == 1 else ""
+            if (
+                not value
+                or len(value) > len(str(MAX_HTTP_BODY))
+                or re.fullmatch(r"[0-9]+", value) is None
+            ):
                 raise ControllerError("invalid LocalAPI content length")
-            length = int(lengths[0])
+            try:
+                length = int(value)
+            except ValueError as error:
+                raise ControllerError("invalid LocalAPI content length") from error
             if length > MAX_HTTP_BODY:
                 raise ControllerError("oversize LocalAPI HTTP body")
             if len(body) > length:

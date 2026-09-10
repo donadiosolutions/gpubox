@@ -171,6 +171,10 @@ Chart 2.9.0 adds a Python controller using the selected gpubox image. Custom
 images must provide `/usr/bin/python3`. To opt out of managed DNS, set
 `dns.enabled=false` and, if Tailscale is enabled, `tailscale.acceptDNS=false`.
 A CoreDNS process restart can briefly interrupt DNS until Kubernetes recovers it.
+The chart freezes the controller executable during Pod initialization, so an
+existing `OnDelete` Pod keeps one controller generation across ConfigMap
+updates and controller restarts. Recreate the Pod to adopt an upgraded or
+rolled-back controller generation.
 
 For `OnDelete` upgrades, retain any old restricted-DNS rule until the Pod has
 been recreated and the new behavior verified. See the
