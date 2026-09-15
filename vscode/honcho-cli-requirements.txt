@@ -28,9 +28,9 @@ honcho-ai==2.4.0 \
     --hash=sha256:474addb5974834ff6ab3303f6bd18ba2074c78e41a7ae160acffd94dd52131d3 \
     --hash=sha256:a84312a7cbfebc7dafc4a3816877af8f0396a793d487407338da4b2b71921ffe
     # via honcho-cli
-honcho-cli==0.1.4 \
-    --hash=sha256:199841d38c72db98dbb2d9982766d8aa7312a3b53558395c86e1602a7e6c4e22 \
-    --hash=sha256:abe8363918e85735d07f11e863090ad1d635e2763b0c778ec4a8367bdc683af5
+honcho-cli==0.1.5 \
+    --hash=sha256:6d0955e91bab10cd1120b83c7202b783d75fbb138a5e5d4d4492c2b1454049b4 \
+    --hash=sha256:fa34094d6d472b1691cde7eba05a5107c6f11036eda5180c9370580a182ebd19
     # via -r vscode/honcho-cli-requirements.in
 httpcore==1.0.9 \
     --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55 \
