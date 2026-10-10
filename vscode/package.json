@@ -6,13 +6,13 @@
   "license": "MIT",
   "dependencies": {
     "@donadiosolutions/lcm": "1.4.3",
-    "@openai/codex": "0.154.0",
-    "firecrawl-cli": "1.23.3",
+    "@openai/codex": "0.162.1",
+    "firecrawl-cli": "1.26.3",
     "sfw": "2.0.6",
-    "socket": "1.1.171"
+    "socket": "1.7.0"
   },
   "overrides": {
     "axios": "1.20.0",
-    "js-yaml": "5.4.2"
+    "js-yaml": "5.4.3"
   }
 }
