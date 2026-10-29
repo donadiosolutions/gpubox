@@ -116,7 +116,7 @@ helm template gpubox "${CHART_DIR}" \
 assert_contains "${render_enabled}" "name: tailscale-sysctl"
 assert_contains "${render_enabled}" "name: tailscale"
 assert_contains "${render_enabled}" "restartPolicy: Always"
-assert_contains "${render_enabled}" "ghcr.io/tailscale/tailscale:v1.102.3@sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680"
+assert_contains "${render_enabled}" "ghcr.io/tailscale/tailscale:v1.104.4@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c"
 assert_contains "${render_enabled}" "name: TS_USERSPACE"
 assert_count "${render_enabled}" 1 "name: TS_USERSPACE"
 assert_contains "${render_enabled}" "name: TS_ACCEPT_DNS"
