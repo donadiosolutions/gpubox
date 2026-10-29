@@ -90,7 +90,7 @@ ssh:
   initContainer:
     image:
       repository: busybox
-      tag: "1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616"
+      tag: "1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4"
       pullPolicy: IfNotPresent
     securityContext: {}
     resources: {}
@@ -117,8 +117,8 @@ tailscale:
   enabled: false
   image:
     repository: ghcr.io/tailscale/tailscale
-    tag: "v1.102.3"
-    digest: "sha256:8c42c4574ab066384fcb72f69e086a2ff1dd3652eb6f56856cee34bcf0d2f680"
+    tag: "v1.104.4"
+    digest: "sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c"
     pullPolicy: IfNotPresent
   authKey:
     # Provide exactly one source when enabled. Inline values are retained in
