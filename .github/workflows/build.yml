@@ -508,6 +508,15 @@ jobs:
           mkdir -p dist
           helm package charts/gpubox --destination dist
           chart_tgz="$(ls -1 dist/*.tgz | head -n 1)"
+          chart_name="$(basename "${chart_tgz}")"
+          git fetch origin gh-pages
+          pages_revision="$(git rev-parse FETCH_HEAD)"
+          if git cat-file -e "${pages_revision}:${chart_name}" 2>/dev/null; then
+            published_chart="$(mktemp)"
+            git show "${pages_revision}:${chart_name}" >"${published_chart}"
+            python3 scripts/chart/reuse_published_archive.py "${chart_tgz}" "${published_chart}"
+            rm "${published_chart}"
+          fi
           echo "tgz=${chart_tgz}" >>"$GITHUB_OUTPUT"
 
       - name: Generate chart SBOM (SPDX JSON)
