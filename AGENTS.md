@@ -35,7 +35,10 @@ This repository contains a small “remote devbox” stack:
   branch (GitHub Pages), including:
   - `index.yaml`
   - `gpubox-*.tgz`
-- Published chart versions are immutable: rerunning an identical archive preserves its existing index entry, while changed bytes require a new chart version. Index generation merges only new archives so historical `created` timestamps remain unchanged.
+- Published chart versions are immutable: rerunning an identical archive preserves
+  its existing index entry, while changed bytes require a new chart version.
+  Index generation merges only new archives so historical `created` timestamps
+  remain unchanged.
 
 ## CI runtime expectations
 
