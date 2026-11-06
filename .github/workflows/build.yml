@@ -508,6 +508,15 @@ jobs:
           mkdir -p dist
           helm package charts/gpubox --destination dist
           chart_tgz="$(ls -1 dist/*.tgz | head -n 1)"
+          chart_name="$(basename "${chart_tgz}")"
+          git fetch origin gh-pages
+          pages_revision="$(git rev-parse FETCH_HEAD)"
+          if git cat-file -e "${pages_revision}:${chart_name}" 2>/dev/null; then
+            published_chart="$(mktemp)"
+            git show "${pages_revision}:${chart_name}" >"${published_chart}"
+            python3 scripts/chart/reuse_published_archive.py "${chart_tgz}" "${published_chart}"
+            rm "${published_chart}"
+          fi
           echo "tgz=${chart_tgz}" >>"$GITHUB_OUTPUT"
 
       - name: Generate chart SBOM (SPDX JSON)
@@ -587,10 +596,32 @@ jobs:
             popd >/dev/null
           fi
 
-          cp -f "${chart_tgz}" "${pages_dir}/"
+          chart_name="$(basename "${chart_tgz}")"
+          published_chart="${pages_dir}/${chart_name}"
+          if [ -f "${published_chart}" ]; then
+            if ! cmp -s "${chart_tgz}" "${published_chart}"; then
+              echo "Refusing to replace ${chart_name}: publish changed bytes with a new chart version." >&2
+              exit 1
+            fi
+            if [ ! -s "${pages_dir}/index.yaml" ]; then
+              echo "Published chart is missing its index; refusing to invent a publication date." >&2
+              exit 1
+            fi
+          else
+            # Index only the new archive: indexing all historical archives resets
+            # their created timestamps, even when --merge is supplied.
+            index_dir="$(mktemp -d)"
+            cp "${chart_tgz}" "${index_dir}/"
+            merge_args=()
+            if [ -f "${pages_dir}/index.yaml" ]; then
+              merge_args=(--merge "${pages_dir}/index.yaml")
+            fi
+            helm repo index "${index_dir}" --url "${pages_url}" "${merge_args[@]}"
+            mv "${index_dir}/${chart_name}" "${published_chart}"
+            mv "${index_dir}/index.yaml" "${pages_dir}/index.yaml"
+            rmdir "${index_dir}"
+          fi
           touch "${pages_dir}/.nojekyll"
-
-          helm repo index "${pages_dir}" --url "${pages_url}"
 
           pushd "${pages_dir}" >/dev/null
           git add .
